@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "community-mvp": {
+      "command": "npx",
+      "args": [
+        "scripts/mcp/community-mvp-mcp.mjs"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<your-github-personal-access-token>",
+        "COMMUNITY_MVP_GITHUB_REPOSITORY": "<owner/repo>",
+        "COMMUNITY_MVP_MCP_WORKSPACE_ROOT": "e:\\app"
+      }
+    }
+  }
+}

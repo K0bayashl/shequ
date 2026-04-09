@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "node scripts/hooks/post-tool-use.mjs",
+        "cwd": ".",
+        "timeout": 10
+      }
+    ]
+  }
+}

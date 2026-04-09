@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node scripts/hooks/session-start.mjs",
+        "cwd": ".",
+        "timeout": 10
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    com.community.mvp.backend: INFO
+
+management:
+  health:
+    redis:
+      enabled: false
+
+community-mvp:
+  runtime:
+    database-enabled: false
+  security:
+    jwt-enabled: false
+  cache:
+    redis-enabled: false
+  docs:
+    openapi-enabled: false

@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: community-mvp-backend
+  profiles:
+    default: local
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+community-mvp:
+  runtime:
+    database-enabled: false
+  security:
+    jwt-enabled: false
+    jwt-secret: ""
+  cache:
+    redis-enabled: false
+  docs:
+    openapi-enabled: false

@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: ${COMMUNITY_MVP_DB_URL}
+    username: ${COMMUNITY_MVP_DB_USERNAME}
+    password: ${COMMUNITY_MVP_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${COMMUNITY_MVP_REDIS_HOST:localhost}
+      port: ${COMMUNITY_MVP_REDIS_PORT:6379}
+
+community-mvp:
+  runtime:
+    database-enabled: true
+  security:
+    jwt-enabled: true
+    jwt-secret: ${COMMUNITY_MVP_JWT_SECRET:change-me}
+  cache:
+    redis-enabled: true
+  docs:
+    openapi-enabled: false

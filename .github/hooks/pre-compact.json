@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "type": "command",
+        "command": "node scripts/hooks/pre-compact.mjs",
+        "cwd": ".",
+        "timeout": 10
+      }
+    ]
+  }
+}
