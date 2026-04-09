@@ -69,6 +69,10 @@
 
 用途：处理 GitHub 提交、PR、发布说明、CI 结果与上线前检查。
 
+### github-actions
+
+用途：编写、审查和排查 GitHub Actions workflow，重点关注触发器、权限、缓存、矩阵、CI 失败和仓库交付流程。
+
 ## 推荐的 MCP
 
 ### GitHub MCP

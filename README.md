@@ -15,6 +15,7 @@
 - `.github/instructions/`：按文件类型自动加载的规则。
 - `.github/workflows/ci.yml`：GitHub Actions 持续集成模板。
 - `.github/skills/window-context-init/`：新窗口接手项目时恢复上下文的技能。
+- `.github/skills/github-actions/`：GitHub Actions workflow 编写、审查和排障技能。
 - `.github/prompts/initialize-window-context.prompt.md`：新窗口上下文初始化入口。
 - `.github/prompts/fix-bug.prompt.md`：启动 bug 分析和修复流程的入口。
 - `.github/prompts/close-task.prompt.md`：任务完成或 bug 修复完成后的收尾入口。
@@ -24,6 +25,7 @@
 - `.github/hooks/`：MCP / hooks 示例配置。
 - `scripts/hooks/`：hooks 示例脚本。
 - `scripts/mcp/`：统一 MCP 服务入口脚本。
+- `backend/README.md`：后端脚手架的运行、配置和验证说明。
 - `backend/`：Spring Boot 3.x + Maven 后端脚手架。
 - `frontend/`：前端项目预留目录。
 - `docs/需求开发文档模板.md`：需求分析前使用的标准需求文档模板。

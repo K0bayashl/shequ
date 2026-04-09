@@ -1,6 +1,37 @@
-backend/.m2/
-backend/target/
-frontend/node_modules/
-frontend/dist/
+# Java / Maven build outputs
+**/target/
+**/build/
+**/dist/
+**/coverage/
+**/.m2/
+*.class
+*.jar
+*.war
+*.ear
+
+# Frontend dependencies and build artifacts
+**/node_modules/
+
+# IDE / editor files
 .idea/
 *.iml
+*.ipr
+*.iws
+
+# OS / temporary files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+*.pid
+*.seed
+*.orig
+*.rej
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.sample
