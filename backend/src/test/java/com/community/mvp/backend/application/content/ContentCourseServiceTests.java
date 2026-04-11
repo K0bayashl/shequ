@@ -2,8 +2,11 @@ package com.community.mvp.backend.application.content;
 
 import com.community.mvp.backend.application.content.command.CreateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.CreateCourseCommand;
+import com.community.mvp.backend.application.content.command.DeleteCourseCommand;
+import com.community.mvp.backend.application.content.command.UpdateCourseCommand;
 import com.community.mvp.backend.application.content.query.GetChapterContentQuery;
 import com.community.mvp.backend.application.content.query.GetCourseDetailQuery;
+import com.community.mvp.backend.application.content.query.ListPublishedCoursesQuery;
 import com.community.mvp.backend.application.content.service.ContentCourseService;
 import com.community.mvp.backend.application.content.service.CourseDetailResult;
 import com.community.mvp.backend.application.content.service.CreateCourseResult;
@@ -111,6 +114,50 @@ class ContentCourseServiceTests {
 
         assertThrows(BusinessException.class, () ->
             contentCourseService.getChapterContent(new GetChapterContentQuery(secondCourse.courseId(), chapterIdOfFirstCourse))
+        );
+    }
+
+    @Test
+    void shouldUpdateCourseTitleAndDescription() {
+        CreateCourseResult created = contentCourseService.createCourse(new CreateCourseCommand(
+            "旧课程标题",
+            "旧描述",
+            null,
+            1,
+            List.of(new CreateCourseChapterCommand("章节1", "正文", 1)),
+            1L
+        ));
+
+        contentCourseService.updateCourse(new UpdateCourseCommand(
+            created.courseId(),
+            "新课程标题",
+            "新描述",
+            "https://example.com/new-cover.png",
+            1,
+            1L
+        ));
+
+        CourseDetailResult detail = contentCourseService.getCourseDetail(new GetCourseDetailQuery(created.courseId()));
+        assertEquals("新课程标题", detail.title());
+        assertEquals("新描述", detail.description());
+    }
+
+    @Test
+    void shouldSoftDeleteCourseAndHideFromPublishedList() {
+        CreateCourseResult created = contentCourseService.createCourse(new CreateCourseCommand(
+            "待删除课程",
+            "描述",
+            null,
+            1,
+            List.of(new CreateCourseChapterCommand("章节1", "正文", 1)),
+            1L
+        ));
+
+        contentCourseService.deleteCourse(new DeleteCourseCommand(created.courseId(), 1L));
+
+        assertEquals(0, contentCourseService.listPublishedCourses(new ListPublishedCoursesQuery()).size());
+        assertThrows(BusinessException.class, () ->
+            contentCourseService.getCourseDetail(new GetCourseDetailQuery(created.courseId()))
         );
     }
 }

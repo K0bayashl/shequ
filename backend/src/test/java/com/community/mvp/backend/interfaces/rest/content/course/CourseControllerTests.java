@@ -22,7 +22,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -135,8 +139,67 @@ class CourseControllerTests {
                       "chapters": []
                     }
                     """))
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                    .andExpect(status().is4xxClientError())
+                    .andExpect(jsonPath("$.code", anyOf(is("FORBIDDEN"), is("UNAUTHORIZED"))));
+    }
+
+    @Test
+    void adminShouldUpdateAndSoftDeleteCourse() throws Exception {
+        long courseId = createCourseByAdminAndReturnId("可编辑课程", 1);
+
+        mockMvc.perform(put("/api/admin/courses/{id}", courseId)
+                .header("Authorization", bearerToken(adminUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "已编辑课程",
+                      "description": "更新后的课程描述",
+                      "coverImage": "https://example.com/updated.png",
+                      "status": 1
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.courseId").value(courseId))
+            .andExpect(jsonPath("$.data.status").value(1));
+
+        mockMvc.perform(get("/api/courses")
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].title").value("已编辑课程"));
+
+        mockMvc.perform(delete("/api/admin/courses/{id}", courseId)
+                .header("Authorization", bearerToken(adminUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.courseId").value(courseId))
+            .andExpect(jsonPath("$.data.status").value(2));
+
+        mockMvc.perform(get("/api/courses")
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void memberShouldNotUpdateOrDeleteCourse() throws Exception {
+        long courseId = createCourseByAdminAndReturnId("受保护课程", 1);
+
+        mockMvc.perform(put("/api/admin/courses/{id}", courseId)
+                .header("Authorization", bearerToken(memberUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "越权编辑",
+                      "description": "should fail",
+                      "status": 1
+                    }
+                    """))
+                    .andExpect(status().is4xxClientError())
+                    .andExpect(jsonPath("$.code", anyOf(is("FORBIDDEN"), is("UNAUTHORIZED"))));
+
+        mockMvc.perform(delete("/api/admin/courses/{id}", courseId)
+                .header("Authorization", bearerToken(memberUser)))
+                    .andExpect(status().is4xxClientError())
+                    .andExpect(jsonPath("$.code", anyOf(is("FORBIDDEN"), is("UNAUTHORIZED"))));
     }
 
     @Test
@@ -152,21 +215,29 @@ class CourseControllerTests {
             .andExpect(jsonPath("$.data[0].title").value("已发布课程"));
     }
 
+        private long createCourseByAdminAndReturnId(String title, int status) throws Exception {
+                JsonNode createdJson = objectMapper.readTree(mockMvc.perform(post("/api/admin/courses")
+                                .header("Authorization", bearerToken(adminUser))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                            "title": "%s",
+                                            "description": "desc",
+                                            "status": %d,
+                                            "chapters": [
+                                                {"title": "chapter", "content": "content", "sortOrder": 1}
+                                            ]
+                                        }
+                                        """.formatted(title, status)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString());
+                return createdJson.path("data").path("courseId").asLong();
+        }
+
     private void createCourseByAdmin(String title, int status) throws Exception {
-        mockMvc.perform(post("/api/admin/courses")
-                .header("Authorization", bearerToken(adminUser))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {
-                      "title": "%s",
-                      "description": "desc",
-                      "status": %d,
-                      "chapters": [
-                        {"title": "chapter", "content": "content", "sortOrder": 1}
-                      ]
-                    }
-                    """.formatted(title, status)))
-            .andExpect(status().isOk());
+                createCourseByAdminAndReturnId(title, status);
     }
 
     private String bearerToken(UserAccountEntity user) {

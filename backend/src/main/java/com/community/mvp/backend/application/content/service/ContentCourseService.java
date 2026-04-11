@@ -2,6 +2,8 @@ package com.community.mvp.backend.application.content.service;
 
 import com.community.mvp.backend.application.content.command.CreateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.CreateCourseCommand;
+import com.community.mvp.backend.application.content.command.DeleteCourseCommand;
+import com.community.mvp.backend.application.content.command.UpdateCourseCommand;
 import com.community.mvp.backend.application.content.query.GetChapterContentQuery;
 import com.community.mvp.backend.application.content.query.GetCourseDetailQuery;
 import com.community.mvp.backend.application.content.query.ListPublishedCoursesQuery;
@@ -12,6 +14,7 @@ import com.community.mvp.backend.domain.content.model.CourseChapter;
 import com.community.mvp.backend.domain.content.model.CourseStatus;
 import com.community.mvp.backend.domain.content.repository.CourseChapterRepository;
 import com.community.mvp.backend.domain.content.repository.CourseRepository;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -77,6 +80,67 @@ public class ContentCourseService {
         return new CreateCourseResult(savedCourse.id(), savedCourse.status().getCode(), chapterCommands.size());
     }
 
+    /**
+     * 编辑课程基础信息。
+     *
+     * @param command 编辑课程命令
+     * @return 编辑结果
+     */
+    @Transactional
+    public UpdateCourseResult updateCourse(UpdateCourseCommand command) {
+        Long operatorUserId = requireUserId(command.operatorUserId());
+        Long courseId = requireCourseId(command.courseId());
+        Course existing = findCourseOrThrow(courseId);
+
+        CourseStatus status = toCourseStatus(command.status());
+        Course updated = courseRepository.saveAndFlush(new Course(
+            existing.id(),
+            normalizeRequired(command.title(), "title"),
+            normalizeRequired(command.description(), "description"),
+            normalizeOptional(command.coverImage()),
+            status,
+            existing.moderationStatus(),
+            existing.moderationReason(),
+            existing.moderatedBy(),
+            existing.moderatedAt(),
+            existing.createdBy(),
+            existing.createdAt(),
+            existing.updatedAt()
+        ));
+
+        return new UpdateCourseResult(updated.id(), updated.status().getCode());
+    }
+
+    /**
+     * 软删除课程，当前通过设置为下架状态实现。
+     *
+     * @param command 删除命令
+     * @return 删除结果
+     */
+    @Transactional
+    public DeleteCourseResult deleteCourse(DeleteCourseCommand command) {
+        Long operatorUserId = requireUserId(command.operatorUserId());
+        Long courseId = requireCourseId(command.courseId());
+        Course existing = findCourseOrThrow(courseId);
+
+        Course deleted = courseRepository.saveAndFlush(new Course(
+            existing.id(),
+            existing.title(),
+            existing.description(),
+            existing.coverImage(),
+            CourseStatus.OFFLINE,
+            1,
+            "deleted_by_admin",
+            operatorUserId,
+            LocalDateTime.now(),
+            existing.createdBy(),
+            existing.createdAt(),
+            existing.updatedAt()
+        ));
+
+        return new DeleteCourseResult(deleted.id(), deleted.status().getCode());
+    }
+
     @Transactional(readOnly = true)
     public List<CourseListItem> listPublishedCourses(ListPublishedCoursesQuery query) {
         return courseRepository.findAllByStatusOrderByUpdatedAtDesc(CourseStatus.PUBLISHED).stream()
@@ -127,12 +191,19 @@ public class ContentCourseService {
     }
 
     private Course findPublishedCourseOrThrow(Long courseId) {
-        Course course = courseRepository.findById(courseId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.BUSINESS_ERROR, "Course not found."));
+        Course course = findCourseOrThrow(courseId);
         if (!course.status().isPublished()) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "Course is not available.");
         }
         return course;
+    }
+
+    /**
+     * 按主键查询课程，不存在时抛出业务异常。
+     */
+    private Course findCourseOrThrow(Long courseId) {
+        return courseRepository.findById(courseId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.BUSINESS_ERROR, "Course not found."));
     }
 
     private void assertDistinctSortOrder(List<CreateCourseChapterCommand> chapterCommands) {
@@ -152,6 +223,13 @@ public class ContentCourseService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "Authentication is required.");
         }
         return userId;
+    }
+
+    private Long requireCourseId(Long courseId) {
+        if (courseId == null || courseId <= 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "courseId must be greater than 0.");
+        }
+        return courseId;
     }
 
     private CourseStatus toCourseStatus(int statusCode) {
