@@ -10,8 +10,8 @@ export interface UserResponse {
   username: string
   email: string
   avatar: string | null
-  role: string
-  status: string
+  role: number
+  status: number
   createdAt: string
 }
 
@@ -121,6 +121,57 @@ export interface DocsChapter {
 
 export interface DocsChapterListResponse {
   chapters: DocsChapter[]
+}
+
+export interface CreateCourseChapterRequest {
+  title: string
+  content: string
+  sortOrder: number
+}
+
+export interface CreateCourseRequest {
+  title: string
+  description: string
+  coverImage?: string
+  status: 0 | 1 | 2
+  chapters: CreateCourseChapterRequest[]
+}
+
+export interface CreateCourseResponse {
+  courseId: number
+  status: number
+  chapterCount: number
+}
+
+export interface CourseListItem {
+  id: number
+  title: string
+  description: string
+  coverImage: string | null
+  chapterCount: number
+  publishedAt: string
+}
+
+export interface CourseChapterItem {
+  id: number
+  title: string
+  sortOrder: number
+}
+
+export interface CourseDetail {
+  id: number
+  title: string
+  description: string
+  coverImage: string | null
+  chapters: CourseChapterItem[]
+}
+
+export interface ChapterContent {
+  courseId: number
+  chapterId: number
+  title: string
+  sortOrder: number
+  content: string
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'
@@ -289,4 +340,27 @@ export function getAdminCdks(
 
 export function getDocsChapters(): Promise<DocsChapterListResponse> {
   return request<DocsChapterListResponse>('/api/v1/content/docs/chapters', { method: 'GET' }, true)
+}
+
+export function createCourse(body: CreateCourseRequest): Promise<CreateCourseResponse> {
+  return request<CreateCourseResponse>(
+    '/api/admin/courses',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function getCourses(): Promise<CourseListItem[]> {
+  return request<CourseListItem[]>('/api/courses', { method: 'GET' }, true)
+}
+
+export function getCourseDetail(courseId: number): Promise<CourseDetail> {
+  return request<CourseDetail>(`/api/courses/${courseId}`, { method: 'GET' }, true)
+}
+
+export function getChapterContent(courseId: number, chapterId: number): Promise<ChapterContent> {
+  return request<ChapterContent>(`/api/courses/${courseId}/chapters/${chapterId}`, { method: 'GET' }, true)
 }
