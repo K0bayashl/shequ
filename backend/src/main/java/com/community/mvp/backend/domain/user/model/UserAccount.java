@@ -19,6 +19,10 @@ public record UserAccount(
         return new UserAccount(id, username, email, passwordHash, avatar, role, status, createdAt, updatedAt);
     }
 
+    public UserAccount withStatus(UserStatus status) {
+        return new UserAccount(id, username, email, passwordHash, avatar, role, status, createdAt, updatedAt);
+    }
+
     public UserProfile toProfile() {
         return new UserProfile(
             id,
