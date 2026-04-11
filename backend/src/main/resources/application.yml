@@ -2,7 +2,7 @@ spring:
   application:
     name: community-mvp-backend
   profiles:
-    default: local
+    default: dev
 
 management:
   endpoints:

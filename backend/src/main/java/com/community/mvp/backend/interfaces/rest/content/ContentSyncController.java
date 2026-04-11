@@ -21,16 +21,32 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * 内容同步查询接口。
+ * <p>提供社区流、管理端 CDK 总览和文档章节列表查询。</p>
+ */
 @RestController
 @RequestMapping("/api/v1/content")
 public class ContentSyncController {
 
     private final ObjectProvider<ContentSyncQueryService> contentSyncQueryServiceProvider;
 
+    /**
+     * 构造内容同步控制器。
+     *
+     * @param contentSyncQueryServiceProvider 内容查询服务提供器
+     */
     public ContentSyncController(ObjectProvider<ContentSyncQueryService> contentSyncQueryServiceProvider) {
         this.contentSyncQueryServiceProvider = contentSyncQueryServiceProvider;
     }
 
+    /**
+     * 查询社区动态列表。
+     *
+     * @param filter 过滤条件：all、official、user
+     * @param sort 排序条件：latest、hot、top
+     * @return 社区动态与热门话题
+     */
     @GetMapping("/community/feed")
     public ApiResponse<CommunityFeedResponse> communityFeed(
         @RequestParam(defaultValue = "all") String filter,
@@ -55,6 +71,13 @@ public class ContentSyncController {
         return ApiResponse.success(new CommunityFeedResponse(sortedThreads, buildTrendingTopics()));
     }
 
+    /**
+     * 查询管理端 CDK 总览。
+     *
+     * @param search 搜索关键词
+     * @param status 状态筛选：all、used、unused、expired
+     * @return CDK 总览数据
+     */
     @GetMapping("/admin/cdks")
     public ApiResponse<AdminCdkOverviewResponse> adminCdks(
         @RequestParam(required = false) String search,
@@ -86,21 +109,45 @@ public class ContentSyncController {
         ));
     }
 
+    /**
+     * 查询文档章节目录。
+     *
+     * @return 文档章节列表
+     */
     @GetMapping("/docs/chapters")
     public ApiResponse<DocsChapterListResponse> docsChapters() {
         return ApiResponse.success(new DocsChapterListResponse(buildDocsChapters()));
     }
 
+    /**
+     * 判断 CDK 条目是否包含关键词。
+     *
+     * @param cdk CDK 条目
+     * @param keyword 关键词
+     * @return 是否命中
+     */
     private boolean containsKeyword(AdminCdkItemResponse cdk, String keyword) {
         return safeContains(cdk.key(), keyword)
             || safeContains(cdk.usedBy(), keyword)
             || safeContains(cdk.usedByEmail(), keyword);
     }
 
+    /**
+     * 安全包含判断，避免空指针。
+     *
+     * @param source 源字符串
+     * @param keyword 关键词
+     * @return 是否包含关键词
+     */
     private boolean safeContains(String source, String keyword) {
         return source != null && source.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
+    /**
+     * 构建社区动态示例数据。
+     *
+     * @return 社区动态列表
+     */
     private List<CommunityThreadResponse> buildCommunityThreads() {
         return List.of(
             new CommunityThreadResponse(
@@ -166,6 +213,11 @@ public class ContentSyncController {
         );
     }
 
+    /**
+     * 构建热门话题示例数据。
+     *
+     * @return 热门话题列表
+     */
     private List<TopicStatResponse> buildTrendingTopics() {
         return List.of(
             new TopicStatResponse("React 19", 234),
@@ -176,6 +228,11 @@ public class ContentSyncController {
         );
     }
 
+    /**
+     * 构建管理端 CDK 示例数据。
+     *
+     * @return CDK 条目列表
+     */
     private List<AdminCdkItemResponse> buildAdminCdks() {
         return List.of(
             new AdminCdkItemResponse(1L, "YALI-2024-AXKJ-8F92", "used", "Chen Wei", "chen.wei@example.com", "2024-03-15", "2024-03-01"),
@@ -189,6 +246,11 @@ public class ContentSyncController {
         );
     }
 
+    /**
+     * 构建文档章节示例数据。
+     *
+     * @return 文档章节列表
+     */
     private List<DocsChapterResponse> buildDocsChapters() {
         return List.of(
             new DocsChapterResponse("Getting Started", "book", List.of(

@@ -18,6 +18,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 脚手架探活与调试接口。
+ * <p>用于环境探测、回显测试和鉴权链路连通性验证。</p>
+ */
 @RestController
 @RequestMapping("/api/v1/scaffold")
 public class ScaffoldController {
@@ -26,6 +30,13 @@ public class ScaffoldController {
     private final Environment environment;
     private final CurrentUserContext currentUserContext;
 
+    /**
+     * 构造脚手架控制器。
+     *
+     * @param scaffoldApplicationService 脚手架应用服务
+     * @param environment Spring 环境对象
+     * @param currentUserContext 当前用户上下文
+     */
     public ScaffoldController(
         ScaffoldApplicationService scaffoldApplicationService,
         Environment environment,
@@ -36,6 +47,11 @@ public class ScaffoldController {
         this.currentUserContext = currentUserContext;
     }
 
+    /**
+     * 获取运行时状态信息。
+     *
+     * @return 应用名、激活 profile 与开关状态
+     */
     @GetMapping("/ping")
     public ApiResponse<StatusResponse> ping() {
         ScaffoldStatus status = scaffoldApplicationService.buildStatus(Arrays.asList(environment.getActiveProfiles()));
@@ -51,12 +67,23 @@ public class ScaffoldController {
         return ApiResponse.success(response);
     }
 
+    /**
+     * 回显输入消息，用于连通性验证。
+     *
+     * @param request 回显请求
+     * @return 回显结果
+     */
     @PostMapping("/echo")
     public ApiResponse<EchoResponse> echo(@Valid @RequestBody EchoRequest request) {
         ScaffoldEcho echo = scaffoldApplicationService.echo(request.message());
         return ApiResponse.success(new EchoResponse(echo.message(), echo.echoedAt()));
     }
 
+    /**
+     * 鉴权探活接口。
+     *
+     * @return 当前主体信息
+     */
     @GetMapping("/secure-ping")
     public ApiResponse<SecurePingResponse> securePing() {
         String principal = currentUserContext.currentUserId().orElse("anonymous");

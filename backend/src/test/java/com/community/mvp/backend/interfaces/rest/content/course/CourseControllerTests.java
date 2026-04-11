@@ -1,0 +1,183 @@
+package com.community.mvp.backend.interfaces.rest.content.course;
+
+import com.community.mvp.backend.domain.user.model.UserPrincipal;
+import com.community.mvp.backend.domain.user.model.UserRole;
+import com.community.mvp.backend.domain.user.model.UserStatus;
+import com.community.mvp.backend.infrastructure.persistence.content.repository.jpa.JpaCourseChapterRepository;
+import com.community.mvp.backend.infrastructure.persistence.content.repository.jpa.JpaCourseRepository;
+import com.community.mvp.backend.infrastructure.persistence.user.entity.UserAccountEntity;
+import com.community.mvp.backend.infrastructure.persistence.user.repository.jpa.JpaCdkRepository;
+import com.community.mvp.backend.infrastructure.persistence.user.repository.jpa.JpaUserAccountRepository;
+import com.community.mvp.backend.infrastructure.security.JwtTokenService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+class CourseControllerTests {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private JwtTokenService jwtTokenService;
+
+    @Autowired
+    private JpaUserAccountRepository userAccountRepository;
+
+    @Autowired
+    private JpaCdkRepository cdkRepository;
+
+    @Autowired
+    private JpaCourseRepository courseRepository;
+
+    @Autowired
+    private JpaCourseChapterRepository chapterRepository;
+
+    private UserAccountEntity adminUser;
+    private UserAccountEntity memberUser;
+
+    @BeforeEach
+    void setUp() {
+        chapterRepository.deleteAll();
+        courseRepository.deleteAll();
+        cdkRepository.deleteAll();
+        userAccountRepository.deleteAll();
+
+        adminUser = userAccountRepository.save(new UserAccountEntity(
+            "admin-user",
+            "admin@example.com",
+            "hashed-password",
+            null,
+            UserRole.ADMIN.getCode(),
+            UserStatus.ACTIVE.getCode()
+        ));
+
+        memberUser = userAccountRepository.save(new UserAccountEntity(
+            "member-user",
+            "member@example.com",
+            "hashed-password",
+            null,
+            UserRole.MEMBER.getCode(),
+            UserStatus.ACTIVE.getCode()
+        ));
+    }
+
+    @Test
+    void adminShouldCreateCourseAndMemberShouldReadPublishedCourse() throws Exception {
+        JsonNode createdJson = objectMapper.readTree(mockMvc.perform(post("/api/admin/courses")
+                .header("Authorization", bearerToken(adminUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "Spring Boot 内容实战",
+                      "description": "用于会员学习的课程",
+                      "coverImage": "https://example.com/cover.png",
+                      "status": 1,
+                      "chapters": [
+                        {"title": "第二章", "content": "# chapter2", "sortOrder": 2},
+                        {"title": "第一章", "content": "# chapter1", "sortOrder": 1}
+                      ]
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value("SUCCESS"))
+            .andExpect(jsonPath("$.data.status").value(1))
+            .andExpect(jsonPath("$.data.chapterCount").value(2))
+            .andReturn()
+            .getResponse()
+            .getContentAsString());
+
+        long courseId = createdJson.path("data").path("courseId").asLong();
+
+        mockMvc.perform(get("/api/courses")
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].id").value(courseId))
+            .andExpect(jsonPath("$.data[0].chapterCount").value(2));
+
+        mockMvc.perform(get("/api/courses/{id}", courseId)
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.chapters[0].sortOrder").value(1))
+            .andExpect(jsonPath("$.data.chapters[1].sortOrder").value(2));
+    }
+
+    @Test
+    void memberShouldNotCreateCourse() throws Exception {
+        mockMvc.perform(post("/api/admin/courses")
+                .header("Authorization", bearerToken(memberUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "非管理员创建",
+                      "description": "should fail",
+                      "status": 1,
+                      "chapters": []
+                    }
+                    """))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void listShouldOnlyReturnPublishedCoursesAndExcludeOffline() throws Exception {
+        createCourseByAdmin("草稿课程", 0);
+        createCourseByAdmin("已发布课程", 1);
+        createCourseByAdmin("已下架课程", 2);
+
+        mockMvc.perform(get("/api/courses")
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].title").value("已发布课程"));
+    }
+
+    private void createCourseByAdmin(String title, int status) throws Exception {
+        mockMvc.perform(post("/api/admin/courses")
+                .header("Authorization", bearerToken(adminUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "%s",
+                      "description": "desc",
+                      "status": %d,
+                      "chapters": [
+                        {"title": "chapter", "content": "content", "sortOrder": 1}
+                      ]
+                    }
+                    """.formatted(title, status)))
+            .andExpect(status().isOk());
+    }
+
+    private String bearerToken(UserAccountEntity user) {
+        String token = jwtTokenService.issueToken(new UserPrincipal(
+            user.getId(),
+            user.getUsername(),
+            user.getEmail(),
+            user.getRole(),
+            user.getStatus(),
+            Instant.now()
+        ));
+        return "Bearer " + token;
+    }
+}
