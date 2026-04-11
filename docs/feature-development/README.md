@@ -4,6 +4,9 @@
 
 ## 当前记录
 
+- [2026-04-11 - 内容模块实现切片 01（数据库与核心读写链路）](2026-04-11-content-module-implementation-slice-01.md)
+- [2026-04-11 - 内容治理后端最小字段与接口草案](2026-04-11-content-module-backend-minimal-draft.md)
+- [2026-04-11 - 内容系统模块开发文档](2026-04-11-content-module-development.md)
 - [2026-04-10 - 前后端契约同步（admin/community/docs 最小可用）](2026-04-10-frontend-backend-contract-sync.md)
 - [2026-04-10 - 前端收敛（质量基线与重复实现清理）](2026-04-10-frontend-convergence.md)
 - [2026-04-09 - 用户模块第一阶段实现](2026-04-09-user-module-implementation.md)
