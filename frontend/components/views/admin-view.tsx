@@ -37,12 +37,20 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  banUser,
   createCourse,
   getAdminCdks,
   getCourses,
+  getModerationReports,
+  handleCourseReport,
+  restoreCourse,
+  takedownCourse,
+  unbanUser,
   type AdminCdkItem,
   type CourseListItem,
   type CreateCourseRequest,
+  type ModerationReportItem,
+  type ModerationReportStatusFilter,
 } from "@/lib/backend-api"
 
 const navItems = [
@@ -79,9 +87,27 @@ export function AdminView() {
   const [courses, setCourses] = useState<CourseListItem[]>([])
   const [isCoursesLoading, setIsCoursesLoading] = useState(false)
   const [coursesError, setCoursesError] = useState<string | null>(null)
+  const [isCourseActionLoading, setIsCourseActionLoading] = useState(false)
   const [isCreatingCourse, setIsCreatingCourse] = useState(false)
   const [createCourseError, setCreateCourseError] = useState<string | null>(null)
   const [createCourseSuccess, setCreateCourseSuccess] = useState<string | null>(null)
+
+  const [reports, setReports] = useState<ModerationReportItem[]>([])
+  const [reportStatusFilter, setReportStatusFilter] = useState<ModerationReportStatusFilter>("pending")
+  const [isReportsLoading, setIsReportsLoading] = useState(false)
+  const [reportsError, setReportsError] = useState<string | null>(null)
+  const [handlingReportId, setHandlingReportId] = useState<number | null>(null)
+
+  const [targetCourseId, setTargetCourseId] = useState("")
+  const [courseActionReason, setCourseActionReason] = useState("")
+  const [courseActionLoading, setCourseActionLoading] = useState<"takedown" | "restore" | null>(null)
+
+  const [targetUserId, setTargetUserId] = useState("")
+  const [userActionReason, setUserActionReason] = useState("")
+  const [userActionLoading, setUserActionLoading] = useState<"ban" | "unban" | null>(null)
+
+  const [moderationActionError, setModerationActionError] = useState<string | null>(null)
+  const [moderationActionSuccess, setModerationActionSuccess] = useState<string | null>(null)
 
   const [courseTitle, setCourseTitle] = useState("")
   const [courseDescription, setCourseDescription] = useState("")
@@ -123,6 +149,21 @@ export function AdminView() {
     }
   }, [])
 
+  const syncReports = useCallback(async (status: ModerationReportStatusFilter = reportStatusFilter) => {
+    setIsReportsLoading(true)
+    setReportsError(null)
+
+    try {
+      const response = await getModerationReports(status)
+      setReports(response)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "举报列表同步失败"
+      setReportsError(message)
+    } finally {
+      setIsReportsLoading(false)
+    }
+  }, [reportStatusFilter])
+
   useEffect(() => {
     if (activeNav === "cdk") {
       void syncAdminCdks()
@@ -130,7 +171,10 @@ export function AdminView() {
     if (activeNav === "courses") {
       void syncCourses()
     }
-  }, [activeNav, syncAdminCdks, syncCourses])
+    if (activeNav === "moderation") {
+      void syncReports()
+    }
+  }, [activeNav, syncAdminCdks, syncCourses, syncReports])
 
   useEffect(() => {
     if (activeNav !== "cdk") {
@@ -145,6 +189,13 @@ export function AdminView() {
       clearTimeout(timer)
     }
   }, [activeNav, searchQuery, statusFilter, syncAdminCdks])
+
+  useEffect(() => {
+    if (activeNav !== "moderation") {
+      return
+    }
+    void syncReports(reportStatusFilter)
+  }, [activeNav, reportStatusFilter, syncReports])
 
   const copyToClipboard = (key: string) => {
     navigator.clipboard.writeText(key)
@@ -200,6 +251,101 @@ export function AdminView() {
     } finally {
       setIsCreatingCourse(false)
     }
+  }
+
+  const handleReportDecision = async (
+    reportId: number,
+    decision: "approve" | "reject",
+    takedown: boolean,
+    banAuthorAction: boolean,
+  ) => {
+    setModerationActionError(null)
+    setModerationActionSuccess(null)
+    const handleNote = window.prompt("请输入处理备注（可留空）") ?? ""
+    setHandlingReportId(reportId)
+
+    try {
+      const response = await handleCourseReport(reportId, {
+        decision,
+        handleNote,
+        takedownCourse: takedown,
+        banAuthor: banAuthorAction,
+      })
+      setModerationActionSuccess(
+        `举报 #${response.reportId} 处理成功（状态=${response.status}，下架=${response.courseTakenDown ? "是" : "否"}，封禁=${response.authorBanned ? "是" : "否"}）`,
+      )
+      await syncReports(reportStatusFilter)
+      await syncCourses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "处理举报失败"
+      setModerationActionError(message)
+    } finally {
+      setHandlingReportId(null)
+    }
+  }
+
+  const handleCourseAction = async (action: "takedown" | "restore") => {
+    setModerationActionError(null)
+    setModerationActionSuccess(null)
+
+    const parsedCourseId = Number(targetCourseId)
+    if (!Number.isInteger(parsedCourseId) || parsedCourseId <= 0) {
+      setModerationActionError("课程 ID 必须是大于 0 的整数")
+      return
+    }
+
+    setCourseActionLoading(action)
+    try {
+      const response = action === "takedown"
+        ? await takedownCourse(parsedCourseId, { reason: courseActionReason.trim() || undefined })
+        : await restoreCourse(parsedCourseId, { reason: courseActionReason.trim() || undefined })
+      setModerationActionSuccess(`课程 ${response.courseId} 操作成功，当前状态=${response.status}`)
+      await syncCourses()
+      await syncReports(reportStatusFilter)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "课程治理操作失败"
+      setModerationActionError(message)
+    } finally {
+      setCourseActionLoading(null)
+    }
+  }
+
+  const handleUserAction = async (action: "ban" | "unban") => {
+    setModerationActionError(null)
+    setModerationActionSuccess(null)
+
+    const parsedUserId = Number(targetUserId)
+    if (!Number.isInteger(parsedUserId) || parsedUserId <= 0) {
+      setModerationActionError("用户 ID 必须是大于 0 的整数")
+      return
+    }
+
+    setUserActionLoading(action)
+    try {
+      const response = action === "ban"
+        ? await banUser(parsedUserId, { reason: userActionReason.trim() || undefined })
+        : await unbanUser(parsedUserId, { reason: userActionReason.trim() || undefined })
+      setModerationActionSuccess(`用户 ${response.userId} 操作成功，当前状态=${response.status}`)
+      await syncReports(reportStatusFilter)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "用户治理操作失败"
+      setModerationActionError(message)
+    } finally {
+      setUserActionLoading(null)
+    }
+  }
+
+  const formatReportStatus = (status: number) => {
+    if (status === 0) {
+      return "待处理"
+    }
+    if (status === 1) {
+      return "已通过"
+    }
+    if (status === 2) {
+      return "已驳回"
+    }
+    return `未知(${status})`
   }
 
   return (
@@ -261,6 +407,8 @@ export function AdminView() {
               <p className="text-sm text-muted-foreground">
                 {activeNav === "courses"
                   ? "同步课程接口并发布课程内容"
+                  : activeNav === "moderation"
+                    ? "处理举报并执行课程/用户治理动作"
                   : activeNav === "cdk"
                     ? "管理 CDK 激活码"
                     : "该模块尚未在当前切片实现"}
@@ -271,7 +419,17 @@ export function AdminView() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => void (activeNav === "courses" ? syncCourses() : syncAdminCdks())}
+            onClick={() => {
+              if (activeNav === "courses") {
+                void syncCourses()
+                return
+              }
+              if (activeNav === "moderation") {
+                void syncReports(reportStatusFilter)
+                return
+              }
+              void syncAdminCdks()
+            }}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             刷新
@@ -372,10 +530,224 @@ export function AdminView() {
                             <Badge variant="secondary">{course.chapterCount} 章节</Badge>
                           </div>
                           <p className="mt-1 text-sm text-muted-foreground">{course.description}</p>
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isCourseActionLoading}
+                              onClick={async () => {
+                                setModerationActionError(null)
+                                setModerationActionSuccess(null)
+                                setIsCourseActionLoading(true)
+                                try {
+                                  const response = await takedownCourse(course.id, { reason: "管理员手动下架" })
+                                  setModerationActionSuccess(`课程 ${response.courseId} 已下架`)
+                                  await syncCourses()
+                                } catch (error) {
+                                  const message = error instanceof Error ? error.message : "课程下架失败"
+                                  setModerationActionError(message)
+                                } finally {
+                                  setIsCourseActionLoading(false)
+                                }
+                              }}
+                            >
+                              {isCourseActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              下架课程
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {activeNav === "moderation" && (
+            <>
+              {moderationActionError && <p className="text-sm text-destructive">{moderationActionError}</p>}
+              {moderationActionSuccess && <p className="text-sm text-green-600">{moderationActionSuccess}</p>}
+
+              <Card className="border-border">
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle>举报列表</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={reportStatusFilter}
+                        onValueChange={(v) => setReportStatusFilter(v as ModerationReportStatusFilter)}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全部</SelectItem>
+                          <SelectItem value="pending">待处理</SelectItem>
+                          <SelectItem value="resolved">已通过</SelectItem>
+                          <SelectItem value="rejected">已驳回</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" onClick={() => void syncReports(reportStatusFilter)}>
+                        <RefreshCw className={"mr-2 h-4 w-4"} />
+                        刷新列表
+                      </Button>
+                    </div>
+                  </div>
+                  {isReportsLoading && <p className="text-sm text-muted-foreground">正在同步举报列表...</p>}
+                  {reportsError && <p className="text-sm text-destructive">{reportsError}</p>}
+                </CardHeader>
+                <CardContent>
+                  {reports.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">当前筛选下暂无举报。</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>内容</TableHead>
+                          <TableHead>举报原因</TableHead>
+                          <TableHead>状态</TableHead>
+                          <TableHead>时间</TableHead>
+                          <TableHead>操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reports.map((report) => (
+                          <TableRow key={report.reportId}>
+                            <TableCell>#{report.reportId}</TableCell>
+                            <TableCell>{report.contentType}#{report.contentId}</TableCell>
+                            <TableCell>
+                              <p className="text-sm font-medium">{report.reasonCode}</p>
+                              {report.reasonDetail && (
+                                <p className="text-xs text-muted-foreground">{report.reasonDetail}</p>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={report.status === 0 ? "secondary" : "outline"}>
+                                {formatReportStatus(report.status)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{new Date(report.createdAt).toLocaleString()}</TableCell>
+                            <TableCell>
+                              {report.status === 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void handleReportDecision(report.reportId, "approve", true, true)}
+                                    disabled={handlingReportId === report.reportId}
+                                  >
+                                    {handlingReportId === report.reportId ? (
+                                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    通过并联动处置
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void handleReportDecision(report.reportId, "reject", false, false)}
+                                    disabled={handlingReportId === report.reportId}
+                                  >
+                                    驳回
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">已处理</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-border">
+                <CardHeader>
+                  <CardTitle>课程治理动作</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="moderation-course-id">课程 ID</Label>
+                    <Input
+                      id="moderation-course-id"
+                      value={targetCourseId}
+                      onChange={(e) => setTargetCourseId(e.target.value)}
+                      placeholder="例如 1001"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="moderation-course-reason">操作原因（可选）</Label>
+                    <Input
+                      id="moderation-course-reason"
+                      value={courseActionReason}
+                      onChange={(e) => setCourseActionReason(e.target.value)}
+                      placeholder="例如：人工复核结论"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleCourseAction("takedown")}
+                      disabled={courseActionLoading !== null}
+                    >
+                      {courseActionLoading === "takedown" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      下架课程
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleCourseAction("restore")}
+                      disabled={courseActionLoading !== null}
+                    >
+                      {courseActionLoading === "restore" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      恢复课程
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border">
+                <CardHeader>
+                  <CardTitle>用户治理动作</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="moderation-user-id">用户 ID</Label>
+                    <Input
+                      id="moderation-user-id"
+                      value={targetUserId}
+                      onChange={(e) => setTargetUserId(e.target.value)}
+                      placeholder="例如 2001"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="moderation-user-reason">操作原因（可选）</Label>
+                    <Input
+                      id="moderation-user-reason"
+                      value={userActionReason}
+                      onChange={(e) => setUserActionReason(e.target.value)}
+                      placeholder="例如：重复违规"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleUserAction("ban")}
+                      disabled={userActionLoading !== null}
+                    >
+                      {userActionLoading === "ban" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      封禁用户
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleUserAction("unban")}
+                      disabled={userActionLoading !== null}
+                    >
+                      {userActionLoading === "unban" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      解封用户
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </>
@@ -465,7 +837,7 @@ export function AdminView() {
             </>
           )}
 
-          {activeNav !== "courses" && activeNav !== "cdk" && (
+          {activeNav !== "courses" && activeNav !== "cdk" && activeNav !== "moderation" && (
             <Card className="border-border">
               <CardContent className="p-6 text-sm text-muted-foreground">
                 当前切片仅同步了课程与 CDK 页面，{activeNavMeta?.label ?? "该模块"} 将在后续迭代接入。

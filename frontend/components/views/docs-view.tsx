@@ -11,6 +11,7 @@ import {
   getChapterContent,
   getCourseDetail,
   getCourses,
+  submitCourseReport,
   type ChapterContent,
   type CourseDetail,
   type CourseListItem,
@@ -31,6 +32,12 @@ export function DocsView() {
   const [courseListError, setCourseListError] = useState<string | null>(null)
   const [courseDetailError, setCourseDetailError] = useState<string | null>(null)
   const [chapterError, setChapterError] = useState<string | null>(null)
+
+  const [reportReasonCode, setReportReasonCode] = useState("other")
+  const [reportReasonDetail, setReportReasonDetail] = useState("")
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
+  const [reportSuccess, setReportSuccess] = useState<string | null>(null)
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === selectedCourseId) ?? null,
@@ -155,6 +162,32 @@ export function DocsView() {
     }
   }, [selectedCourseId, selectedChapterId])
 
+  const handleSubmitReport = async () => {
+    if (!selectedCourseId) {
+      setReportError("请先选择课程")
+      return
+    }
+
+    setIsSubmittingReport(true)
+    setReportError(null)
+    setReportSuccess(null)
+
+    try {
+      const response = await submitCourseReport({
+        courseId: selectedCourseId,
+        reasonCode: reportReasonCode,
+        reasonDetail: reportReasonDetail.trim() || undefined,
+      })
+      setReportSuccess(`举报已提交，编号 #${response.reportId}`)
+      setReportReasonDetail("")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "提交举报失败"
+      setReportError(message)
+    } finally {
+      setIsSubmittingReport(false)
+    }
+  }
+
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-background">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 lg:grid-cols-[320px_1fr] lg:p-6">
@@ -224,6 +257,37 @@ export function DocsView() {
           <CardContent className="space-y-4 p-4 lg:p-6">
             {selectedCourse && (
               <p className="text-sm text-muted-foreground">{selectedCourse.description}</p>
+            )}
+
+            {selectedCourse && (
+              <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+                <p className="text-sm font-medium text-foreground">举报当前课程</p>
+                {reportError && <p className="text-xs text-destructive">{reportError}</p>}
+                {reportSuccess && <p className="text-xs text-green-600">{reportSuccess}</p>}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    value={reportReasonCode}
+                    onChange={(event) => setReportReasonCode(event.target.value)}
+                  >
+                    <option value="spam">垃圾信息</option>
+                    <option value="abuse">辱骂攻击</option>
+                    <option value="infringement">侵权内容</option>
+                    <option value="other">其他</option>
+                  </select>
+                  <Button size="sm" onClick={() => void handleSubmitReport()} disabled={isSubmittingReport}>
+                    {isSubmittingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    提交举报
+                  </Button>
+                </div>
+                <textarea
+                  value={reportReasonDetail}
+                  onChange={(event) => setReportReasonDetail(event.target.value)}
+                  rows={3}
+                  placeholder="可选：补充举报说明"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
             )}
 
             {isCourseDetailLoading ? (

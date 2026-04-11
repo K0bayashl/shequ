@@ -174,6 +174,65 @@ export interface ChapterContent {
   content: string
 }
 
+export type ModerationReportStatusFilter = 'all' | 'pending' | 'resolved' | 'rejected'
+
+export interface SubmitCourseReportRequest {
+  courseId: number
+  reasonCode: string
+  reasonDetail?: string
+}
+
+export interface SubmitCourseReportResponse {
+  reportId: number
+  status: number
+}
+
+export interface ModerationReportItem {
+  reportId: number
+  contentType: string
+  contentId: number
+  reporterUserId: number
+  reasonCode: string
+  reasonDetail: string | null
+  status: number
+  handledBy: number | null
+  handledAt: string | null
+  handleNote: string | null
+  createdAt: string
+}
+
+export interface HandleCourseReportRequest {
+  decision: 'approve' | 'reject'
+  handleNote?: string
+  takedownCourse: boolean
+  banAuthor: boolean
+}
+
+export interface HandleCourseReportResponse {
+  reportId: number
+  status: number
+  courseTakenDown: boolean
+  authorBanned: boolean
+}
+
+export interface CourseModerationRequest {
+  reason?: string
+}
+
+export interface CourseModerationResponse {
+  courseId: number
+  status: number
+}
+
+export interface UserModerationRequest {
+  reason?: string
+}
+
+export interface UserModerationResponse {
+  userId: number
+  status: number
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'
 export const AUTH_TOKEN_KEY = 'community_mvp_auth_token'
 
@@ -363,4 +422,92 @@ export function getCourseDetail(courseId: number): Promise<CourseDetail> {
 
 export function getChapterContent(courseId: number, chapterId: number): Promise<ChapterContent> {
   return request<ChapterContent>(`/api/courses/${courseId}/chapters/${chapterId}`, { method: 'GET' }, true)
+}
+
+export function submitCourseReport(body: SubmitCourseReportRequest): Promise<SubmitCourseReportResponse> {
+  return request<SubmitCourseReportResponse>(
+    '/api/reports',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function getModerationReports(
+  status: ModerationReportStatusFilter = 'all',
+): Promise<ModerationReportItem[]> {
+  const params = new URLSearchParams({ status })
+  return request<ModerationReportItem[]>(`/api/admin/moderation/reports?${params.toString()}`, { method: 'GET' }, true)
+}
+
+export function handleCourseReport(
+  reportId: number,
+  body: HandleCourseReportRequest,
+): Promise<HandleCourseReportResponse> {
+  return request<HandleCourseReportResponse>(
+    `/api/admin/moderation/reports/${reportId}/handle`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function takedownCourse(
+  courseId: number,
+  body: CourseModerationRequest = {},
+): Promise<CourseModerationResponse> {
+  return request<CourseModerationResponse>(
+    `/api/admin/moderation/courses/${courseId}/takedown`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function restoreCourse(
+  courseId: number,
+  body: CourseModerationRequest = {},
+): Promise<CourseModerationResponse> {
+  return request<CourseModerationResponse>(
+    `/api/admin/moderation/courses/${courseId}/restore`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function banUser(
+  userId: number,
+  body: UserModerationRequest = {},
+): Promise<UserModerationResponse> {
+  return request<UserModerationResponse>(
+    `/api/admin/moderation/users/${userId}/ban`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function unbanUser(
+  userId: number,
+  body: UserModerationRequest = {},
+): Promise<UserModerationResponse> {
+  return request<UserModerationResponse>(
+    `/api/admin/moderation/users/${userId}/unban`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
 }
