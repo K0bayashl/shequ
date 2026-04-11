@@ -15,4 +15,4 @@ applyTo: "**/*.java"
 - 如果行为存在歧义，修改前先说明假设。
 - 如果变更影响公共契约，要同步更新相关文档或调用方。
 - 领域建模、聚合边界、值对象、仓储和依赖方向等 DDD 约束由 [ddd.instructions.md](ddd.instructions.md) 单独负责，只有在领域相关目录中额外生效。
-- 本项目默认后端技术栈为 Spring Boot 3.x、MySQL 8.x、Redis、JWT 和阿里云 OSS；项目前端为 Vue 3 + Element Plus，内容采用 Markdown 组织，部署目标为阿里云 ECS。
+- 本项目默认后端技术栈为 Spring Boot 3.x、MySQL 8.x、Redis、JWT 和阿里云 OSS；项目前端为 React + Next.js + Tailwind CSS，内容采用 Markdown 组织，部署目标为阿里云 ECS。

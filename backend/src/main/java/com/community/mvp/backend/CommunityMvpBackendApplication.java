@@ -13,3 +13,4 @@ public class CommunityMvpBackendApplication {
         SpringApplication.run(CommunityMvpBackendApplication.class, args);
     }
 }
+

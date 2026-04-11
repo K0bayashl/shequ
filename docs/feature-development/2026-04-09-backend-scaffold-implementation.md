@@ -1,4 +1,4 @@
-# 2026-04-09 - backend 后端脚手架落地
+﻿# 2026-04-09 - backend 后端脚手架落地
 
 ## 背景
 
@@ -18,7 +18,7 @@
 ## 验证结果
 
 - 在当前机器默认 JDK 17 环境下，执行 `mvn -B -ntp -s backend/settings.xml -f backend/pom.xml "-Djava.version=17" test`，5 条测试全部通过。
-- 基线仍保持 Java 21；由于当前机器默认 Java 版本不是 21，本机的完整基线验证仍待补。
+- 基线已统一切换为 Java 17；当前机器默认 JDK 17 与项目基线一致，本机验证已通过。
 
 ## 遗留项
 

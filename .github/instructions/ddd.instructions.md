@@ -1,9 +1,11 @@
 ---
 description: "用于实现 DDD 架构下的 Java 业务代码。覆盖分层边界、聚合、实体、值对象、领域服务、仓储和依赖方向。"
 applyTo:
+  - "**/src/main/java/**/interfaces/**/*.java"
   - "**/src/main/java/**/domain/**/*.java"
   - "**/src/main/java/**/application/**/*.java"
   - "**/src/main/java/**/infrastructure/**/*.java"
+  - "**/src/test/java/**/interfaces/**/*.java"
   - "**/src/test/java/**/domain/**/*.java"
   - "**/src/test/java/**/application/**/*.java"
   - "**/src/test/java/**/infrastructure/**/*.java"
@@ -16,6 +18,70 @@ applyTo:
 - 划分聚合、实体、值对象、领域服务
 - 编写应用层用例编排代码
 - 定义仓储接口与基础设施实现
+
+## 标准架构模板
+
+### 分层关系
+
+```mermaid
+flowchart TB
+  Client[Client / UI / API Consumer] --> Interfaces[Interfaces]
+  Interfaces --> Application[Application]
+  Application --> Domain[Domain]
+  Infrastructure[Infrastructure] -.implements ports.-> Domain
+  Infrastructure -.supports.-> Application
+```
+
+### 推荐目录
+
+```text
+src/main/java/com/community/mvp/backend/
+  interfaces/
+    rest/
+    dto/
+    mapper/
+  application/
+    command/
+    query/
+    service/
+  domain/
+    model/
+    repository/
+    service/
+    event/
+  infrastructure/
+    persistence/
+    client/
+    config/
+  common/
+    api/
+    error/
+    util/
+  config/
+```
+
+### 标准职责映射
+
+- Interfaces：Controller、DTO、参数校验、鉴权入口、请求响应适配。
+- Application：用例编排、事务边界、跨聚合协调、Command / Query 处理。
+- Domain：聚合根、实体、值对象、领域服务、领域事件、仓储接口。
+- Infrastructure：Repository 实现、ORM、数据库、缓存、第三方客户端、消息适配。
+- Common / Config：统一返回、错误码、配置属性、安全和通用工具。
+
+### 新模块落地顺序
+
+1. 先定义聚合和不变量，再定义实体和值对象。
+2. 再定义仓储接口和领域服务，明确领域语言。
+3. 然后编排应用层用例，确定事务边界和输入输出。
+4. 再补接口层 DTO、Controller、Mapper 和校验。
+5. 最后补基础设施实现、外部系统适配和测试。
+
+### 依赖示意
+
+- `interfaces -> application -> domain`
+- `application -> domain`
+- `infrastructure -> domain`
+- `common/config` 只提供横切能力，不承载业务规则
 
 ## 分层规则
 

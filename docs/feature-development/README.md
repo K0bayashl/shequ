@@ -1,9 +1,12 @@
-# feature 开发记录目录
+﻿# feature 开发记录目录
 
 > 这里存放功能开发相关的真实记录、阶段总结和任务收尾说明。
 
 ## 当前记录
 
+- [2026-04-10 - 前后端契约同步（admin/community/docs 最小可用）](2026-04-10-frontend-backend-contract-sync.md)
+- [2026-04-10 - 前端收敛（质量基线与重复实现清理）](2026-04-10-frontend-convergence.md)
+- [2026-04-09 - 用户模块第一阶段实现](2026-04-09-user-module-implementation.md)
 - [2026-04-09 - backend 后端脚手架落地](2026-04-09-backend-scaffold-implementation.md)
 - [2026-04-08 - 社区 MVP 项目脚手架开发文档](2026-04-08-project-scaffold-development.md)
 - [2026-04-08 - 用户相关模块开发文档](2026-04-08-user-module-development.md)

@@ -21,7 +21,7 @@
 - `.github/prompts/close-task.prompt.md`：任务完成或 bug 修复完成后的收尾入口。
 - `.github/instructions/ddd.instructions.md`：DDD 领域建模规则。
 - `.github/instructions/flyway.instructions.md`：Flyway 数据库迁移规则。
-- `.github/instructions/frontend.instructions.md`：Vue 3 + TypeScript 前端规则。
+- `.github/instructions/frontend.instructions.md`：React + Next.js + Tailwind CSS 前端规则。
 - `.github/hooks/`：MCP / hooks 示例配置。
 - `scripts/hooks/`：hooks 示例脚本。
 - `scripts/mcp/`：统一 MCP 服务入口脚本。

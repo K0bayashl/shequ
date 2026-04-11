@@ -1,12 +1,16 @@
 spring:
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
-      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+  datasource:
+    url: jdbc:h2:mem:communitymvp;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
   flyway:
-    enabled: false
+    enabled: true
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
 
 management:
   health:
@@ -15,9 +19,10 @@ management:
 
 community-mvp:
   runtime:
-    database-enabled: false
+    database-enabled: true
   security:
-    jwt-enabled: false
+    jwt-enabled: true
+    jwt-secret: test-secret
   cache:
     redis-enabled: false
   docs:

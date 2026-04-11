@@ -6,6 +6,7 @@ public enum ErrorCode {
     REQUEST_BODY_ERROR("REQUEST_BODY_ERROR", "Request body is malformed."),
     BUSINESS_ERROR("BUSINESS_ERROR", "Business rule validation failed."),
     UNAUTHORIZED("UNAUTHORIZED", "Authentication is required."),
+    FORBIDDEN("FORBIDDEN", "Access is denied."),
     SYSTEM_ERROR("SYSTEM_ERROR", "An unexpected system error occurred.");
 
     private final String code;
@@ -24,3 +25,4 @@ public enum ErrorCode {
         return message;
     }
 }
+

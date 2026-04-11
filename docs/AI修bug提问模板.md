@@ -1,4 +1,4 @@
-# AI 修 bug 提问模板
+﻿# AI 修 bug 提问模板
 
 > 用于把一个 bug 描述成 AI 可以直接分析、定位和修复的问题单。建议在让 Claude 或 Copilot 修 bug 之前先填写这份模板。
 

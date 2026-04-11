@@ -18,3 +18,4 @@ public record ApiResponse<T>(
         return new ApiResponse<>(errorCode.getCode(), message, data, Instant.now());
     }
 }
+

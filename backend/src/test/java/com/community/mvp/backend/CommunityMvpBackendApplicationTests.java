@@ -12,3 +12,4 @@ class CommunityMvpBackendApplicationTests {
     void contextLoads() {
     }
 }
+

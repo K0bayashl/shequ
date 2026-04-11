@@ -92,6 +92,17 @@
 - 任何 Java 任务都应按“侦察 -> 规划 -> 实现 -> 测试 -> 审查 -> 发布”的顺序推进。
 - 如果任务需要更高自治，先补齐子代理（subagent）和技能（skill），再扩展 hooks，而不是直接扩大主 agent 的职责。
 
+### 9.1 Prompt-first 门禁
+
+- 所有 Java 开发任务都必须先归类到一个明确的入口 prompt，不要直接跳进编码阶段。
+- 新模块或新功能开发必须从 [.github/prompts/bootstrap-java-project.prompt.md](.github/prompts/bootstrap-java-project.prompt.md) 开始。
+- 已批准的实现任务必须从 [.github/prompts/implement-java-task.prompt.md](.github/prompts/implement-java-task.prompt.md) 开始。
+- bug 修复必须从 [.github/prompts/fix-bug.prompt.md](.github/prompts/fix-bug.prompt.md) 开始。
+- 任务收尾必须从 [.github/prompts/close-task.prompt.md](.github/prompts/close-task.prompt.md) 开始。
+- 新窗口恢复上下文必须从 [.github/prompts/initialize-window-context.prompt.md](.github/prompts/initialize-window-context.prompt.md) 开始。
+- 如果当前上下文没有对应的原始文档、批准结果或任务范围，先停下来补齐信息，不要自行补全流程。
+- 如果发现自己拿错了入口 prompt，先切换到正确入口，再继续后续步骤，不要一边分析一边写代码。
+
 ## 10. 项目技术栈（社区 MVP）
 
 - 后端框架：Spring Boot 3.x。
@@ -99,7 +110,7 @@
 - 缓存：Redis。
 - 鉴权：JWT，Payload 包含 `userId`、`role`、`status`。
 - 文件存储：阿里云 OSS。
-- 前端框架：Vue 3 + TypeScript + Vite + Vue Router + Pinia + Element Plus。
+- 前端框架：React + Next.js + TypeScript + Tailwind CSS + shadcn/ui。
 - 内容格式：Markdown，支持代码块、图片和视频内嵌。
 - 部署环境：阿里云 ECS。
 - 会员模式：买断制社区，用户通过 CDK 激活后获得会员权限。

@@ -1,0 +1,31 @@
+# 本文件是示例模板，不会被 Spring Boot 自动读取。
+# 请将占位符替换为你的真实值后，通过环境变量注入，或复制内容到你的本地私有配置中。
+
+spring:
+  datasource:
+    url: jdbc:mysql://<DB_HOST>:<DB_PORT>/<DB_NAME>?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: <DB_USERNAME>
+    password: <DB_PASSWORD>
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  data:
+    redis:
+      host: <REDIS_HOST>
+      port: <REDIS_PORT>
+
+community-mvp:
+  runtime:
+    database-enabled: true
+  security:
+    jwt-enabled: true
+    jwt-secret: <JWT_SECRET_AT_LEAST_32_CHARS>
+  cache:
+    redis-enabled: true
+  docs:
+    openapi-enabled: false

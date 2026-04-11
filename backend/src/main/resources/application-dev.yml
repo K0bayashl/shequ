@@ -1,12 +1,16 @@
 spring:
   datasource:
-    url: ${COMMUNITY_MVP_DB_URL}
-    username: ${COMMUNITY_MVP_DB_USERNAME}
-    password: ${COMMUNITY_MVP_DB_PASSWORD}
+    url: ${COMMUNITY_MVP_DB_URL:jdbc:mysql://127.0.0.1:3306/community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: root
+    password: 1231
     driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
   data:
     redis:
       host: ${COMMUNITY_MVP_REDIS_HOST:localhost}
@@ -19,6 +23,6 @@ community-mvp:
     jwt-enabled: true
     jwt-secret: ${COMMUNITY_MVP_JWT_SECRET:change-me}
   cache:
-    redis-enabled: true
+    redis-enabled: false
   docs:
     openapi-enabled: false

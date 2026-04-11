@@ -1,4 +1,50 @@
 ---
+description: "用于编辑社区 MVP 的前端代码。覆盖 React、Next.js、TypeScript、Tailwind CSS、shadcn/ui 和前端工程约定。"
+applyTo:
+  - "**/frontend/**/*.tsx"
+  - "**/frontend/**/*.ts"
+  - "**/frontend/**/*.css"
+---
+# 前端技术栈与开发规范
+
+## 默认技术栈
+- 框架：React 18+ (App Router)
+- SSR/路由：Next.js
+- 语言：TypeScript
+- 样式：Tailwind CSS
+- UI 组件库：shadcn/ui
+- 图标：Lucide React
+
+## 适用场景
+- 维护 React 组件、Next.js 页面级路由、Server Components 和 Client Components。
+- 编写前端业务交互、权限展示、内容管理和后台页面。
+- 处理 Markdown 渲染、资源上传入口和管理后台视图。
+
+## 基本原则
+- 优先使用函数式组件与 React Hooks。
+- 尽量使用 TypeScript 显式描述 props、state、接口返回和组件边界。
+- 明确划分 Server Components 和 Client Components (`"use client"` 指令)。
+- 优先使用 Tailwind CSS 类名控制样式，避免编写额外的 CSS/SCSS 文件。
+- 优先使用现成的 shadcn/ui 组件与设计模式，在此基础上定制。
+- 所有异步请求必须提供可感知的状态反馈（至少包含 loading 与 error），禁止请求失败后页面无提示。
+- 请求失败时优先透传并展示后端返回的 `message`，若无可用信息再降级为统一兜底提示。
+
+## 结构建议
+- 页面入口（`page.tsx`）负责组装和数据获取（优先在服务端获取）。
+- 复杂表单、富文本编辑、上传和列表查询分别抽取为独立的客户端组件（Client Components）。
+- Markdown 渲染、代码高亮、图片和视频内嵌等能力应统一封装并在需要的地方复用。
+- 业务状态管理优先使用简单的 Context、URL 参数或是 SWR/React Query，避免不必要的全局状态库。
+
+## 代码约束
+- 不要在服务端组件中使用浏览器专有的 API（如 `window`、`localStorage` 或 `useState`/`useEffect`）。
+- 组件命名使用 PascalCase，自定义 Hooks 使用 camelCase 且以 `use` 开头。
+- 文件目录命名统一采用连字符风格（kebab-case）。
+- 表单提交按钮在请求进行中应禁用或进入 loading 状态，防止重复提交造成误判。
+
+## 输出要求
+- 如果某段前端实现偏离 React + Next.js + Tailwind + shadcn/ui 的默认栈，请先指出偏离点。
+- 如果需要增加第三方依赖，先说明原因、替代方案和体积影响。
+- 优先给出最小改动方案，不要顺手重构无关页面。---
 description: "用于编辑社区 MVP 的前端代码。覆盖 Vue 3、TypeScript、Vite、Vue Router、Pinia、Element Plus 和前端工程约定。"
 applyTo:
   - "**/src/**/*.vue"
