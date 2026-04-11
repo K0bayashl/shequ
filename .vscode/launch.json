@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Run Backend (dev)",
+      "request": "launch",
+      "mainClass": "com.community.mvp.backend.CommunityMvpBackendApplication",
+      "projectName": "community-mvp-backend",
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "dev"
+      }
+    }
+  ]
+}
