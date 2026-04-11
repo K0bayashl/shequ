@@ -143,6 +143,23 @@ export interface CreateCourseResponse {
   chapterCount: number
 }
 
+export interface UpdateCourseRequest {
+  title: string
+  description: string
+  coverImage?: string
+  status: 0 | 1 | 2
+}
+
+export interface UpdateCourseResponse {
+  courseId: number
+  status: number
+}
+
+export interface DeleteCourseResponse {
+  courseId: number
+  status: number
+}
+
 export interface CourseListItem {
   id: number
   title: string
@@ -407,6 +424,30 @@ export function createCourse(body: CreateCourseRequest): Promise<CreateCourseRes
     {
       method: 'POST',
       body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function updateCourseByAdmin(
+  courseId: number,
+  body: UpdateCourseRequest,
+): Promise<UpdateCourseResponse> {
+  return request<UpdateCourseResponse>(
+    `/api/admin/courses/${courseId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
+export function deleteCourseByAdmin(courseId: number): Promise<DeleteCourseResponse> {
+  return request<DeleteCourseResponse>(
+    `/api/admin/courses/${courseId}`,
+    {
+      method: 'DELETE',
     },
     true,
   )

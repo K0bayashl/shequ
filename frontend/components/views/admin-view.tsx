@@ -39,6 +39,7 @@ import {
 import {
   banUser,
   createCourse,
+  deleteCourseByAdmin,
   getAdminCdks,
   getCourses,
   getModerationReports,
@@ -46,11 +47,13 @@ import {
   restoreCourse,
   takedownCourse,
   unbanUser,
+  updateCourseByAdmin,
   type AdminCdkItem,
   type CourseListItem,
   type CreateCourseRequest,
   type ModerationReportItem,
   type ModerationReportStatusFilter,
+  type UpdateCourseRequest,
 } from "@/lib/backend-api"
 
 const navItems = [
@@ -87,7 +90,9 @@ export function AdminView() {
   const [courses, setCourses] = useState<CourseListItem[]>([])
   const [isCoursesLoading, setIsCoursesLoading] = useState(false)
   const [coursesError, setCoursesError] = useState<string | null>(null)
-  const [isCourseActionLoading, setIsCourseActionLoading] = useState(false)
+  const [courseManagingId, setCourseManagingId] = useState<number | null>(null)
+  const [courseManageError, setCourseManageError] = useState<string | null>(null)
+  const [courseManageSuccess, setCourseManageSuccess] = useState<string | null>(null)
   const [isCreatingCourse, setIsCreatingCourse] = useState(false)
   const [createCourseError, setCreateCourseError] = useState<string | null>(null)
   const [createCourseSuccess, setCreateCourseSuccess] = useState<string | null>(null)
@@ -250,6 +255,74 @@ export function AdminView() {
       setCreateCourseError(message)
     } finally {
       setIsCreatingCourse(false)
+    }
+  }
+
+  const handleEditCourse = async (course: CourseListItem) => {
+    const nextTitle = window.prompt("请输入新的课程标题", course.title)
+    if (nextTitle === null) {
+      return
+    }
+    const nextDescription = window.prompt("请输入新的课程简介", course.description)
+    if (nextDescription === null) {
+      return
+    }
+    const nextStatusRaw = window.prompt("请输入课程状态（0=草稿，1=已发布，2=已下架）", "1")
+    if (nextStatusRaw === null) {
+      return
+    }
+
+    const parsedStatus = Number(nextStatusRaw)
+    if (![0, 1, 2].includes(parsedStatus)) {
+      setCourseManageError("课程状态必须是 0、1 或 2")
+      return
+    }
+
+    const payload: UpdateCourseRequest = {
+      title: nextTitle.trim(),
+      description: nextDescription.trim(),
+      status: parsedStatus as 0 | 1 | 2,
+      coverImage: course.coverImage ?? undefined,
+    }
+
+    if (!payload.title || !payload.description) {
+      setCourseManageError("课程标题和简介不能为空")
+      return
+    }
+
+    setCourseManageError(null)
+    setCourseManageSuccess(null)
+    setCourseManagingId(course.id)
+    try {
+      const response = await updateCourseByAdmin(course.id, payload)
+      setCourseManageSuccess(`课程 ${response.courseId} 已更新，状态=${response.status}`)
+      await syncCourses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "课程编辑失败"
+      setCourseManageError(message)
+    } finally {
+      setCourseManagingId(null)
+    }
+  }
+
+  const handleDeleteCourse = async (course: CourseListItem) => {
+    const confirmed = window.confirm(`确认软删除课程《${course.title}》吗？`)
+    if (!confirmed) {
+      return
+    }
+
+    setCourseManageError(null)
+    setCourseManageSuccess(null)
+    setCourseManagingId(course.id)
+    try {
+      const response = await deleteCourseByAdmin(course.id)
+      setCourseManageSuccess(`课程 ${response.courseId} 已软删除（状态=${response.status}）`)
+      await syncCourses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "课程删除失败"
+      setCourseManageError(message)
+    } finally {
+      setCourseManagingId(null)
     }
   }
 
@@ -517,6 +590,8 @@ export function AdminView() {
                   <CardTitle>已发布课程</CardTitle>
                   {isCoursesLoading && <p className="text-sm text-muted-foreground">正在同步课程列表...</p>}
                   {coursesError && <p className="text-sm text-destructive">{coursesError}</p>}
+                  {courseManageError && <p className="text-sm text-destructive">{courseManageError}</p>}
+                  {courseManageSuccess && <p className="text-sm text-green-600">{courseManageSuccess}</p>}
                 </CardHeader>
                 <CardContent>
                   {courses.length === 0 ? (
@@ -530,29 +605,24 @@ export function AdminView() {
                             <Badge variant="secondary">{course.chapterCount} 章节</Badge>
                           </div>
                           <p className="mt-1 text-sm text-muted-foreground">{course.description}</p>
-                          <div className="mt-3 flex justify-end">
+                          <div className="mt-3 flex flex-wrap justify-end gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={isCourseActionLoading}
-                              onClick={async () => {
-                                setModerationActionError(null)
-                                setModerationActionSuccess(null)
-                                setIsCourseActionLoading(true)
-                                try {
-                                  const response = await takedownCourse(course.id, { reason: "管理员手动下架" })
-                                  setModerationActionSuccess(`课程 ${response.courseId} 已下架`)
-                                  await syncCourses()
-                                } catch (error) {
-                                  const message = error instanceof Error ? error.message : "课程下架失败"
-                                  setModerationActionError(message)
-                                } finally {
-                                  setIsCourseActionLoading(false)
-                                }
-                              }}
+                              disabled={courseManagingId === course.id}
+                              onClick={() => void handleEditCourse(course)}
                             >
-                              {isCourseActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                              下架课程
+                              {courseManagingId === course.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              编辑课程
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={courseManagingId === course.id}
+                              onClick={() => void handleDeleteCourse(course)}
+                            >
+                              {courseManagingId === course.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              软删除
                             </Button>
                           </div>
                         </div>
