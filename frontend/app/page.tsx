@@ -35,6 +35,8 @@ type ViewType =
   | "password"
   | "userLookup"
 
+const ADMIN_ROLE_CODE = 1
+
 const navItems = [
   { id: "courses" as ViewType, label: "Courses", icon: BookOpen },
   { id: "community" as ViewType, label: "Community", icon: Users },
@@ -57,6 +59,9 @@ function GlobalNavbar({
   const displayName = currentUser?.username || "yali_user"
   const displayEmail = currentUser?.email || "user@yali.dev"
   const displayInitials = (displayName[0] || "Y").toUpperCase()
+  const visibleNavItems = currentUser?.role === ADMIN_ROLE_CODE
+    ? navItems
+    : navItems.filter((item) => item.id !== "admin")
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -72,7 +77,7 @@ function GlobalNavbar({
 
           {/* Navigation */}
           <nav className="hidden items-center gap-1 md:flex">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon
               const isActive = currentView === item.id
               return (
@@ -139,7 +144,7 @@ function GlobalNavbar({
 
               {/* Mobile Navigation */}
               <div className="md:hidden">
-                {navItems.map((item) => {
+                {visibleNavItems.map((item) => {
                   const Icon = item.icon
                   return (
                     <DropdownMenuItem key={item.id} onClick={() => onNavigate(item.id)} className="gap-2">
@@ -232,6 +237,10 @@ export default function App() {
   }
 
   const handleNavigate = (view: ViewType) => {
+    if (view === "admin" && currentUser?.role !== ADMIN_ROLE_CODE) {
+      setCurrentView("courses")
+      return
+    }
     setCurrentView(view)
   }
 

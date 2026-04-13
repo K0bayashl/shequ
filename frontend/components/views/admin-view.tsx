@@ -38,8 +38,11 @@ import {
 } from "@/components/ui/table"
 import {
   banUser,
+  createAdminCdk,
   createCourse,
   deleteCourseByAdmin,
+  getChapterContent,
+  getCourseDetail,
   getAdminCdks,
   getCourses,
   getModerationReports,
@@ -47,8 +50,10 @@ import {
   restoreCourse,
   takedownCourse,
   unbanUser,
+  updateCourseChapterByAdmin,
   updateCourseByAdmin,
   type AdminCdkItem,
+  type CourseChapterItem,
   type CourseListItem,
   type CreateCourseRequest,
   type ModerationReportItem,
@@ -86,6 +91,9 @@ export function AdminView() {
   const [isCdkSyncing, setIsCdkSyncing] = useState(false)
   const [cdkSyncError, setCdkSyncError] = useState<string | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [isCreatingCdk, setIsCreatingCdk] = useState(false)
+  const [createCdkError, setCreateCdkError] = useState<string | null>(null)
+  const [createCdkSuccess, setCreateCdkSuccess] = useState<string | null>(null)
 
   const [courses, setCourses] = useState<CourseListItem[]>([])
   const [isCoursesLoading, setIsCoursesLoading] = useState(false)
@@ -121,6 +129,15 @@ export function AdminView() {
   const [chapterTitle, setChapterTitle] = useState("")
   const [chapterContent, setChapterContent] = useState("")
   const [chapterSortOrder, setChapterSortOrder] = useState("1")
+
+  const [chapterEditCourseId, setChapterEditCourseId] = useState<number | null>(null)
+  const [chapterEditOptions, setChapterEditOptions] = useState<CourseChapterItem[]>([])
+  const [chapterEditId, setChapterEditId] = useState("")
+  const [chapterEditTitle, setChapterEditTitle] = useState("")
+  const [chapterEditContent, setChapterEditContent] = useState("")
+  const [chapterEditSortOrder, setChapterEditSortOrder] = useState("")
+  const [isChapterEditorLoading, setIsChapterEditorLoading] = useState(false)
+  const [isChapterSaving, setIsChapterSaving] = useState(false)
 
   const activeNavMeta = useMemo(() => navItems.find((item) => item.id === activeNav), [activeNav])
 
@@ -206,6 +223,39 @@ export function AdminView() {
     navigator.clipboard.writeText(key)
     setCopiedKey(key)
     setTimeout(() => setCopiedKey(null), 1500)
+  }
+
+  const generateRandomCdkCode = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    const randomPart = (length: number) => {
+      const values = new Uint32Array(length)
+      window.crypto.getRandomValues(values)
+      return Array.from(values)
+        .map((value) => chars[value % chars.length])
+        .join("")
+    }
+
+    const year = new Date().getFullYear()
+    return `CDK-${year}-${randomPart(4)}-${randomPart(4)}`
+  }
+
+  const handleCreateCdk = async () => {
+    const normalizedCode = generateRandomCdkCode()
+
+    setCreateCdkError(null)
+    setCreateCdkSuccess(null)
+    setIsCreatingCdk(true)
+
+    try {
+      const response = await createAdminCdk({ code: normalizedCode })
+      setCreateCdkSuccess(`CDK 已创建：${response.key}`)
+      await syncAdminCdks()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "创建 CDK 失败"
+      setCreateCdkError(message)
+    } finally {
+      setIsCreatingCdk(false)
+    }
   }
 
   const handleCreateCourse = async () => {
@@ -322,6 +372,125 @@ export function AdminView() {
       const message = error instanceof Error ? error.message : "课程删除失败"
       setCourseManageError(message)
     } finally {
+      setCourseManagingId(null)
+    }
+  }
+
+  const resetChapterEditor = () => {
+    setChapterEditCourseId(null)
+    setChapterEditOptions([])
+    setChapterEditId("")
+    setChapterEditTitle("")
+    setChapterEditContent("")
+    setChapterEditSortOrder("")
+  }
+
+  const loadChapterEditorContent = async (courseId: number, chapterId: number) => {
+    const chapter = await getChapterContent(courseId, chapterId)
+    setChapterEditId(String(chapter.chapterId))
+    setChapterEditTitle(chapter.title)
+    setChapterEditContent(chapter.content)
+    setChapterEditSortOrder(String(chapter.sortOrder))
+  }
+
+  const handleEditChapter = async (course: CourseListItem) => {
+    if (chapterEditCourseId === course.id) {
+      resetChapterEditor()
+      return
+    }
+
+    setCourseManageError(null)
+    setCourseManageSuccess(null)
+    setIsChapterEditorLoading(true)
+    setCourseManagingId(course.id)
+
+    try {
+      const detail = await getCourseDetail(course.id)
+      if (detail.chapters.length === 0) {
+        setCourseManageError("该课程暂无可编辑章节")
+        return
+      }
+
+      setChapterEditCourseId(course.id)
+      setChapterEditOptions(detail.chapters)
+      await loadChapterEditorContent(course.id, detail.chapters[0].id)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "章节编辑失败"
+      setCourseManageError(message)
+    } finally {
+      setIsChapterEditorLoading(false)
+      setCourseManagingId(null)
+    }
+  }
+
+  const handleChangeEditChapter = async (chapterId: string) => {
+    if (chapterEditCourseId === null) {
+      return
+    }
+
+    const parsedChapterId = Number(chapterId)
+    if (!Number.isInteger(parsedChapterId) || parsedChapterId <= 0) {
+      setCourseManageError("章节 ID 必须是大于 0 的整数")
+      return
+    }
+
+    setCourseManageError(null)
+    setIsChapterEditorLoading(true)
+    try {
+      await loadChapterEditorContent(chapterEditCourseId, parsedChapterId)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "加载章节详情失败"
+      setCourseManageError(message)
+    } finally {
+      setIsChapterEditorLoading(false)
+    }
+  }
+
+  const handleSubmitChapterEdit = async () => {
+    if (chapterEditCourseId === null) {
+      setCourseManageError("请先选择要编辑的课程")
+      return
+    }
+
+    const parsedChapterId = Number(chapterEditId)
+    if (!Number.isInteger(parsedChapterId) || parsedChapterId <= 0) {
+      setCourseManageError("章节 ID 必须是大于 0 的整数")
+      return
+    }
+
+    const parsedSortOrder = Number(chapterEditSortOrder)
+    if (!Number.isInteger(parsedSortOrder) || parsedSortOrder <= 0) {
+      setCourseManageError("章节排序号必须是大于 0 的整数")
+      return
+    }
+
+    if (!chapterEditTitle.trim() || !chapterEditContent.trim()) {
+      setCourseManageError("章节标题和内容不能为空")
+      return
+    }
+
+    setCourseManageError(null)
+    setCourseManageSuccess(null)
+    setIsChapterSaving(true)
+    setCourseManagingId(chapterEditCourseId)
+
+    try {
+      const response = await updateCourseChapterByAdmin(chapterEditCourseId, parsedChapterId, {
+        title: chapterEditTitle.trim(),
+        content: chapterEditContent,
+        sortOrder: parsedSortOrder,
+      })
+      setCourseManageSuccess(`课程 ${response.courseId} 的章节 ${response.chapterId} 已更新（排序=${response.sortOrder}）`)
+
+      const detail = await getCourseDetail(chapterEditCourseId)
+      setChapterEditOptions(detail.chapters)
+      await loadChapterEditorContent(chapterEditCourseId, parsedChapterId)
+      await syncCourses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "章节编辑失败"
+      setCourseManageError(message)
+    } finally {
+      setIsChapterSaving(false)
       setCourseManagingId(null)
     }
   }
@@ -610,6 +779,15 @@ export function AdminView() {
                               size="sm"
                               variant="outline"
                               disabled={courseManagingId === course.id}
+                              onClick={() => void handleEditChapter(course)}
+                            >
+                              {courseManagingId === course.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              编辑章节
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={courseManagingId === course.id}
                               onClick={() => void handleEditCourse(course)}
                             >
                               {courseManagingId === course.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -625,6 +803,85 @@ export function AdminView() {
                               软删除
                             </Button>
                           </div>
+
+                          {chapterEditCourseId === course.id && (
+                            <div className="mt-4 space-y-3 rounded-md border border-dashed border-border p-3">
+                              <p className="text-sm font-medium text-foreground">章节编辑表单</p>
+                              {isChapterEditorLoading && (
+                                <p className="text-xs text-muted-foreground">正在加载章节详情...</p>
+                              )}
+                              <div className="grid gap-2 sm:max-w-[320px]">
+                                <Label>选择章节</Label>
+                                <Select
+                                  value={chapterEditId}
+                                  onValueChange={(v) => void handleChangeEditChapter(v)}
+                                  disabled={isChapterEditorLoading || isChapterSaving}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="选择要编辑的章节" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {chapterEditOptions.map((chapter) => (
+                                      <SelectItem key={chapter.id} value={String(chapter.id)}>
+                                        {chapter.title}（排序 {chapter.sortOrder}）
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label htmlFor={`chapter-edit-title-${course.id}`}>章节标题</Label>
+                                <Input
+                                  id={`chapter-edit-title-${course.id}`}
+                                  value={chapterEditTitle}
+                                  onChange={(e) => setChapterEditTitle(e.target.value)}
+                                  disabled={isChapterEditorLoading || isChapterSaving}
+                                />
+                              </div>
+
+                              <div className="grid gap-2 sm:max-w-[180px]">
+                                <Label htmlFor={`chapter-edit-sort-${course.id}`}>章节排序号</Label>
+                                <Input
+                                  id={`chapter-edit-sort-${course.id}`}
+                                  value={chapterEditSortOrder}
+                                  onChange={(e) => setChapterEditSortOrder(e.target.value)}
+                                  disabled={isChapterEditorLoading || isChapterSaving}
+                                />
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label htmlFor={`chapter-edit-content-${course.id}`}>章节 Markdown 内容</Label>
+                                <textarea
+                                  id={`chapter-edit-content-${course.id}`}
+                                  value={chapterEditContent}
+                                  onChange={(e) => setChapterEditContent(e.target.value)}
+                                  rows={8}
+                                  disabled={isChapterEditorLoading || isChapterSaving}
+                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+                                />
+                              </div>
+
+                              <div className="flex flex-wrap justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={resetChapterEditor}
+                                  disabled={isChapterSaving}
+                                >
+                                  取消
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => void handleSubmitChapterEdit()}
+                                  disabled={isChapterEditorLoading || isChapterSaving}
+                                >
+                                  {isChapterSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                  保存章节
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -836,6 +1093,17 @@ export function AdminView() {
                   <CardTitle>CDK 管理</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {createCdkError && <p className="text-sm text-destructive">{createCdkError}</p>}
+                  {createCdkSuccess && <p className="text-sm text-green-600">{createCdkSuccess}</p>}
+
+                  <div className="flex items-center justify-between rounded-md border border-dashed border-border px-3 py-2">
+                    <p className="text-sm text-muted-foreground">点击按钮后将随机生成一个未使用 CDK</p>
+                    <Button onClick={() => void handleCreateCdk()} disabled={isCreatingCdk}>
+                      {isCreatingCdk ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      随机创建 CDK
+                    </Button>
+                  </div>
+
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

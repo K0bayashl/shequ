@@ -107,6 +107,17 @@ export interface AdminCdkOverviewResponse {
   cdks: AdminCdkItem[]
 }
 
+export interface CreateAdminCdkRequest {
+  code: string
+}
+
+export interface CreateAdminCdkResponse {
+  id: number
+  key: string
+  status: 'unused'
+  createdAt: string | null
+}
+
 export interface DocsChapterItem {
   title: string
   href: string
@@ -158,6 +169,18 @@ export interface UpdateCourseResponse {
 export interface DeleteCourseResponse {
   courseId: number
   status: number
+}
+
+export interface UpdateCourseChapterRequest {
+  title: string
+  content: string
+  sortOrder: number
+}
+
+export interface UpdateCourseChapterResponse {
+  courseId: number
+  chapterId: number
+  sortOrder: number
 }
 
 export interface CourseListItem {
@@ -414,6 +437,17 @@ export function getAdminCdks(
   return request<AdminCdkOverviewResponse>(`/api/v1/content/admin/cdks?${params.toString()}`, { method: 'GET' }, true)
 }
 
+export function createAdminCdk(body: CreateAdminCdkRequest): Promise<CreateAdminCdkResponse> {
+  return request<CreateAdminCdkResponse>(
+    '/api/v1/content/admin/cdks',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    true,
+  )
+}
+
 export function getDocsChapters(): Promise<DocsChapterListResponse> {
   return request<DocsChapterListResponse>('/api/v1/content/docs/chapters', { method: 'GET' }, true)
 }
@@ -448,6 +482,21 @@ export function deleteCourseByAdmin(courseId: number): Promise<DeleteCourseRespo
     `/api/admin/courses/${courseId}`,
     {
       method: 'DELETE',
+    },
+    true,
+  )
+}
+
+export function updateCourseChapterByAdmin(
+  courseId: number,
+  chapterId: number,
+  body: UpdateCourseChapterRequest,
+): Promise<UpdateCourseChapterResponse> {
+  return request<UpdateCourseChapterResponse>(
+    `/api/admin/courses/${courseId}/chapters/${chapterId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(body),
     },
     true,
   )
