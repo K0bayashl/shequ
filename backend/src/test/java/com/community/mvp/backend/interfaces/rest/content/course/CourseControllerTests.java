@@ -180,6 +180,106 @@ class CourseControllerTests {
     }
 
     @Test
+    void adminShouldUpdateCourseChapter() throws Exception {
+        JsonNode createdJson = objectMapper.readTree(mockMvc.perform(post("/api/admin/courses")
+                .header("Authorization", bearerToken(adminUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "章节编辑课程",
+                      "description": "desc",
+                      "status": 1,
+                      "chapters": [
+                        {"title": "第一章", "content": "old", "sortOrder": 1},
+                        {"title": "第二章", "content": "second", "sortOrder": 2}
+                      ]
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString());
+
+        long courseId = createdJson.path("data").path("courseId").asLong();
+
+        JsonNode detailJson = objectMapper.readTree(mockMvc.perform(get("/api/courses/{id}", courseId)
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString());
+
+        long chapterId = detailJson.path("data").path("chapters").get(0).path("id").asLong();
+
+        mockMvc.perform(put("/api/admin/courses/{id}/chapters/{chapterId}", courseId, chapterId)
+                .header("Authorization", bearerToken(adminUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "第一章-更新",
+                      "content": "new-content",
+                      "sortOrder": 3
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.courseId").value(courseId))
+            .andExpect(jsonPath("$.data.chapterId").value(chapterId))
+            .andExpect(jsonPath("$.data.sortOrder").value(3));
+
+        mockMvc.perform(get("/api/courses/{id}/chapters/{chapterId}", courseId, chapterId)
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.title").value("第一章-更新"))
+            .andExpect(jsonPath("$.data.content").value("new-content"))
+            .andExpect(jsonPath("$.data.sortOrder").value(3));
+    }
+
+    @Test
+    void memberShouldNotUpdateCourseChapter() throws Exception {
+        JsonNode createdJson = objectMapper.readTree(mockMvc.perform(post("/api/admin/courses")
+                .header("Authorization", bearerToken(adminUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "章节权限课程",
+                      "description": "desc",
+                      "status": 1,
+                      "chapters": [
+                        {"title": "第一章", "content": "old", "sortOrder": 1}
+                      ]
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString());
+
+        long courseId = createdJson.path("data").path("courseId").asLong();
+
+        JsonNode detailJson = objectMapper.readTree(mockMvc.perform(get("/api/courses/{id}", courseId)
+                .header("Authorization", bearerToken(memberUser)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString());
+
+        long chapterId = detailJson.path("data").path("chapters").get(0).path("id").asLong();
+
+        mockMvc.perform(put("/api/admin/courses/{id}/chapters/{chapterId}", courseId, chapterId)
+                .header("Authorization", bearerToken(memberUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "越权更新",
+                      "content": "should fail",
+                      "sortOrder": 1
+                    }
+                    """))
+            .andExpect(status().is4xxClientError())
+            .andExpect(jsonPath("$.code", anyOf(is("FORBIDDEN"), is("UNAUTHORIZED"))));
+    }
+
+    @Test
     void memberShouldNotUpdateOrDeleteCourse() throws Exception {
         long courseId = createCourseByAdminAndReturnId("受保护课程", 1);
 
@@ -215,29 +315,29 @@ class CourseControllerTests {
             .andExpect(jsonPath("$.data[0].title").value("已发布课程"));
     }
 
-        private long createCourseByAdminAndReturnId(String title, int status) throws Exception {
-                JsonNode createdJson = objectMapper.readTree(mockMvc.perform(post("/api/admin/courses")
-                                .header("Authorization", bearerToken(adminUser))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                            "title": "%s",
-                                            "description": "desc",
-                                            "status": %d,
-                                            "chapters": [
-                                                {"title": "chapter", "content": "content", "sortOrder": 1}
-                                            ]
-                                        }
-                                        """.formatted(title, status)))
-                        .andExpect(status().isOk())
-                        .andReturn()
-                        .getResponse()
-                        .getContentAsString());
-                return createdJson.path("data").path("courseId").asLong();
-        }
+    private long createCourseByAdminAndReturnId(String title, int status) throws Exception {
+        JsonNode createdJson = objectMapper.readTree(mockMvc.perform(post("/api/admin/courses")
+                .header("Authorization", bearerToken(adminUser))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "%s",
+                      "description": "desc",
+                      "status": %d,
+                      "chapters": [
+                        {"title": "chapter", "content": "content", "sortOrder": 1}
+                      ]
+                    }
+                    """.formatted(title, status)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString());
+        return createdJson.path("data").path("courseId").asLong();
+    }
 
     private void createCourseByAdmin(String title, int status) throws Exception {
-                createCourseByAdminAndReturnId(title, status);
+        createCourseByAdminAndReturnId(title, status);
     }
 
     private String bearerToken(UserAccountEntity user) {

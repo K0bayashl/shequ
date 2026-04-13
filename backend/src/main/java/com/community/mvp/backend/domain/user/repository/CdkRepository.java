@@ -6,6 +6,8 @@ import java.util.Optional;
 
 public interface CdkRepository {
 
+    Optional<Cdk> findByCode(String code);
+
     Optional<Cdk> findByCodeAndUsedFalse(String code);
 
     List<Cdk> findAll();

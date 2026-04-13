@@ -3,6 +3,7 @@ package com.community.mvp.backend.application.content;
 import com.community.mvp.backend.application.content.command.CreateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.CreateCourseCommand;
 import com.community.mvp.backend.application.content.command.DeleteCourseCommand;
+import com.community.mvp.backend.application.content.command.UpdateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.UpdateCourseCommand;
 import com.community.mvp.backend.application.content.query.GetChapterContentQuery;
 import com.community.mvp.backend.application.content.query.GetCourseDetailQuery;
@@ -158,6 +159,72 @@ class ContentCourseServiceTests {
         assertEquals(0, contentCourseService.listPublishedCourses(new ListPublishedCoursesQuery()).size());
         assertThrows(BusinessException.class, () ->
             contentCourseService.getCourseDetail(new GetCourseDetailQuery(created.courseId()))
+        );
+    }
+
+    @Test
+    void shouldUpdateCourseChapterContentAndSortOrder() {
+        CreateCourseResult created = contentCourseService.createCourse(new CreateCourseCommand(
+            "章节编辑课程",
+            "描述",
+            null,
+            1,
+            List.of(
+                new CreateCourseChapterCommand("第一章", "旧正文", 1),
+                new CreateCourseChapterCommand("第二章", "正文2", 2)
+            ),
+            1L
+        ));
+
+        Long chapterId = chapterRepository.findAllByCourseIdOrderBySortOrderAscIdAsc(created.courseId()).get(0).getId();
+
+        contentCourseService.updateCourseChapter(new UpdateCourseChapterCommand(
+            created.courseId(),
+            chapterId,
+            "第一章-已更新",
+            "新正文",
+            3,
+            1L
+        ));
+
+        CourseDetailResult detail = contentCourseService.getCourseDetail(new GetCourseDetailQuery(created.courseId()));
+        assertEquals(2, detail.chapters().size());
+        assertEquals(2, detail.chapters().get(0).sortOrder());
+        assertEquals(3, detail.chapters().get(1).sortOrder());
+
+        assertEquals(
+            "新正文",
+            contentCourseService.getChapterContent(new GetChapterContentQuery(created.courseId(), chapterId)).content()
+        );
+    }
+
+    @Test
+    void shouldRejectDuplicateSortOrderWhenUpdatingChapter() {
+        CreateCourseResult created = contentCourseService.createCourse(new CreateCourseCommand(
+            "章节冲突课程",
+            "描述",
+            null,
+            1,
+            List.of(
+                new CreateCourseChapterCommand("第一章", "正文1", 1),
+                new CreateCourseChapterCommand("第二章", "正文2", 2)
+            ),
+            1L
+        ));
+
+        Long secondChapterId = chapterRepository.findAllByCourseIdOrderBySortOrderAscIdAsc(created.courseId())
+            .get(1)
+            .getId();
+
+        assertThrows(BusinessException.class, () ->
+            contentCourseService.updateCourseChapter(new UpdateCourseChapterCommand(
+                created.courseId(),
+                secondChapterId,
+                "第二章",
+                "正文2",
+                1,
+                1L
+            ))
         );
     }
 }

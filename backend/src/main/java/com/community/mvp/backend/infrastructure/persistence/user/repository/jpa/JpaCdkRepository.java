@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JpaCdkRepository extends JpaRepository<CdkEntity, Long> {
 
+    Optional<CdkEntity> findByCode(String code);
+
     Optional<CdkEntity> findByCodeAndUsedFalse(String code);
 
     List<CdkEntity> findAllByUsed(boolean used);

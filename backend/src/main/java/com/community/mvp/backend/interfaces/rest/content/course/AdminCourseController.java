@@ -3,10 +3,12 @@ package com.community.mvp.backend.interfaces.rest.content.course;
 import com.community.mvp.backend.application.content.command.CreateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.CreateCourseCommand;
 import com.community.mvp.backend.application.content.command.DeleteCourseCommand;
+import com.community.mvp.backend.application.content.command.UpdateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.UpdateCourseCommand;
 import com.community.mvp.backend.application.content.service.ContentCourseService;
 import com.community.mvp.backend.application.content.service.CreateCourseResult;
 import com.community.mvp.backend.application.content.service.DeleteCourseResult;
+import com.community.mvp.backend.application.content.service.UpdateCourseChapterResult;
 import com.community.mvp.backend.application.content.service.UpdateCourseResult;
 import com.community.mvp.backend.common.api.ApiResponse;
 import com.community.mvp.backend.common.error.BusinessException;
@@ -17,6 +19,8 @@ import com.community.mvp.backend.infrastructure.security.CurrentUserContext;
 import com.community.mvp.backend.interfaces.rest.content.course.dto.CreateCourseRequest;
 import com.community.mvp.backend.interfaces.rest.content.course.dto.CreateCourseResponse;
 import com.community.mvp.backend.interfaces.rest.content.course.dto.DeleteCourseResponse;
+import com.community.mvp.backend.interfaces.rest.content.course.dto.UpdateCourseChapterRequest;
+import com.community.mvp.backend.interfaces.rest.content.course.dto.UpdateCourseChapterResponse;
 import com.community.mvp.backend.interfaces.rest.content.course.dto.UpdateCourseRequest;
 import com.community.mvp.backend.interfaces.rest.content.course.dto.UpdateCourseResponse;
 import jakarta.validation.Valid;
@@ -32,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 管理端课程维护接口。
- * <p>当前提供课程创建、编辑与软删除能力，要求管理员身份。</p>
+ * <p>当前提供课程与章节的创建、编辑与软删除能力，要求管理员身份。</p>
  */
 @RestController
 @ConditionalOnProperty(prefix = "community-mvp.runtime", name = "database-enabled", havingValue = "true")
@@ -113,6 +117,32 @@ public class AdminCourseController {
         UserPrincipal currentUser = requireAdmin();
         DeleteCourseResult result = contentCourseService.deleteCourse(new DeleteCourseCommand(id, currentUser.userId()));
         return ApiResponse.success(new DeleteCourseResponse(result.courseId(), result.status()));
+    }
+
+    /**
+     * 编辑课程章节。
+     *
+     * @param id 课程 ID
+     * @param chapterId 章节 ID
+     * @param request 编辑请求
+     * @return 编辑结果
+     */
+    @PutMapping("/{id}/chapters/{chapterId}")
+    public ApiResponse<UpdateCourseChapterResponse> updateChapter(
+        @PathVariable Long id,
+        @PathVariable Long chapterId,
+        @Valid @RequestBody UpdateCourseChapterRequest request
+    ) {
+        UserPrincipal currentUser = requireAdmin();
+        UpdateCourseChapterResult result = contentCourseService.updateCourseChapter(new UpdateCourseChapterCommand(
+            id,
+            chapterId,
+            request.title(),
+            request.content(),
+            request.sortOrder(),
+            currentUser.userId()
+        ));
+        return ApiResponse.success(new UpdateCourseChapterResponse(result.courseId(), result.chapterId(), result.sortOrder()));
     }
 
     private UserPrincipal requireAdmin() {

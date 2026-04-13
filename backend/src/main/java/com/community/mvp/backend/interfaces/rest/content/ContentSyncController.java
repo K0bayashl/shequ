@@ -1,18 +1,32 @@
 package com.community.mvp.backend.interfaces.rest.content;
 
+import com.community.mvp.backend.application.content.command.CreateAdminCdkCommand;
+import com.community.mvp.backend.application.content.service.ContentSyncAdminService;
+import com.community.mvp.backend.application.content.service.CreateAdminCdkResult;
 import com.community.mvp.backend.application.content.service.ContentSyncQueryService;
 import com.community.mvp.backend.common.api.ApiResponse;
+import com.community.mvp.backend.common.error.BusinessException;
+import com.community.mvp.backend.common.error.ErrorCode;
+import com.community.mvp.backend.domain.user.model.UserPrincipal;
+import com.community.mvp.backend.domain.user.model.UserRole;
+import com.community.mvp.backend.infrastructure.security.CurrentUserContext;
 import com.community.mvp.backend.interfaces.rest.content.dto.AdminCdkItemResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.AdminCdkOverviewResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.CommunityAuthorResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.CommunityFeedResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.CommunityThreadResponse;
+import com.community.mvp.backend.interfaces.rest.content.dto.CreateAdminCdkRequest;
+import com.community.mvp.backend.interfaces.rest.content.dto.CreateAdminCdkResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.DocsChapterItemResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.DocsChapterListResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.DocsChapterResponse;
 import com.community.mvp.backend.interfaces.rest.content.dto.TopicStatResponse;
+import jakarta.validation.Valid;
+import java.time.format.DateTimeFormatter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,15 +43,27 @@ import java.util.Locale;
 @RequestMapping("/api/v1/content")
 public class ContentSyncController {
 
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     private final ObjectProvider<ContentSyncQueryService> contentSyncQueryServiceProvider;
+    private final ObjectProvider<ContentSyncAdminService> contentSyncAdminServiceProvider;
+    private final CurrentUserContext currentUserContext;
 
     /**
      * 构造内容同步控制器。
      *
      * @param contentSyncQueryServiceProvider 内容查询服务提供器
+     * @param contentSyncAdminServiceProvider 内容管理服务提供器
+     * @param currentUserContext 当前用户上下文
      */
-    public ContentSyncController(ObjectProvider<ContentSyncQueryService> contentSyncQueryServiceProvider) {
+    public ContentSyncController(
+        ObjectProvider<ContentSyncQueryService> contentSyncQueryServiceProvider,
+        ObjectProvider<ContentSyncAdminService> contentSyncAdminServiceProvider,
+        CurrentUserContext currentUserContext
+    ) {
         this.contentSyncQueryServiceProvider = contentSyncQueryServiceProvider;
+        this.contentSyncAdminServiceProvider = contentSyncAdminServiceProvider;
+        this.currentUserContext = currentUserContext;
     }
 
     /**
@@ -106,6 +132,29 @@ public class ContentSyncController {
             activeMembers,
             remainingCdks,
             filteredCdks
+        ));
+    }
+
+    /**
+     * 创建管理端 CDK。
+     *
+     * @param request 创建请求
+     * @return 新建 CDK 摘要
+     */
+    @PostMapping("/admin/cdks")
+    public ApiResponse<CreateAdminCdkResponse> createAdminCdk(@Valid @RequestBody CreateAdminCdkRequest request) {
+        UserPrincipal admin = requireAdmin();
+        ContentSyncAdminService adminService = contentSyncAdminServiceProvider.getIfAvailable();
+        if (adminService == null) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "CDK create is unavailable.");
+        }
+
+        CreateAdminCdkResult created = adminService.createCdk(new CreateAdminCdkCommand(request.code(), admin.userId()));
+        return ApiResponse.success(new CreateAdminCdkResponse(
+            created.cdkId(),
+            created.code(),
+            "unused",
+            created.createdAt() == null ? null : DATE_FORMATTER.format(created.createdAt())
         ));
     }
 
@@ -279,5 +328,14 @@ public class ContentSyncController {
                 new DocsChapterItemResponse("Security", "#", false)
             ))
         );
+    }
+
+    private UserPrincipal requireAdmin() {
+        UserPrincipal currentUser = currentUserContext.currentUser()
+            .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Authentication is required."));
+        if (currentUser.role() != UserRole.ADMIN.getCode()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Admin permission is required.");
+        }
+        return currentUser;
     }
 }

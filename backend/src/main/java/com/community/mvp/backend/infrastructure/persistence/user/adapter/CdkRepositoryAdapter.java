@@ -19,6 +19,11 @@ public class CdkRepositoryAdapter implements com.community.mvp.backend.domain.us
     }
 
     @Override
+    public Optional<Cdk> findByCode(String code) {
+        return cdkRepository.findByCode(code).map(CdkEntity::toDomain);
+    }
+
+    @Override
     public Optional<Cdk> findByCodeAndUsedFalse(String code) {
         return cdkRepository.findByCodeAndUsedFalse(code).map(CdkEntity::toDomain);
     }

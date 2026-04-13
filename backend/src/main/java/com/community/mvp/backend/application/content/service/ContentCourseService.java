@@ -3,6 +3,7 @@ package com.community.mvp.backend.application.content.service;
 import com.community.mvp.backend.application.content.command.CreateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.CreateCourseCommand;
 import com.community.mvp.backend.application.content.command.DeleteCourseCommand;
+import com.community.mvp.backend.application.content.command.UpdateCourseChapterCommand;
 import com.community.mvp.backend.application.content.command.UpdateCourseCommand;
 import com.community.mvp.backend.application.content.query.GetChapterContentQuery;
 import com.community.mvp.backend.application.content.query.GetCourseDetailQuery;
@@ -141,6 +142,45 @@ public class ContentCourseService {
         return new DeleteCourseResult(deleted.id(), deleted.status().getCode());
     }
 
+    /**
+     * 编辑课程章节。
+     *
+     * @param command 编辑章节命令
+     * @return 编辑结果
+     */
+    @Transactional
+    public UpdateCourseChapterResult updateCourseChapter(UpdateCourseChapterCommand command) {
+        requireUserId(command.operatorUserId());
+        Long courseId = requireCourseId(command.courseId());
+        Long chapterId = requireChapterId(command.chapterId());
+
+        Course course = findCourseOrThrow(courseId);
+        CourseChapter chapter = chapterRepository.findById(chapterId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.BUSINESS_ERROR, "Chapter not found."));
+        if (!chapter.courseId().equals(course.id())) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "Chapter does not belong to current course.");
+        }
+
+        int sortOrder = requireSortOrder(command.sortOrder());
+        assertDistinctSortOrderWhenUpdating(course.id(), chapter.id(), sortOrder);
+
+        CourseChapter updated = chapterRepository.saveAndFlush(new CourseChapter(
+            chapter.id(),
+            chapter.courseId(),
+            normalizeRequired(command.title(), "chapter.title"),
+            normalizeRequired(command.content(), "chapter.content"),
+            sortOrder,
+            chapter.moderationStatus(),
+            chapter.moderationReason(),
+            chapter.moderatedBy(),
+            chapter.moderatedAt(),
+            chapter.createdAt(),
+            chapter.updatedAt()
+        ));
+
+        return new UpdateCourseChapterResult(updated.courseId(), updated.id(), updated.sortOrder());
+    }
+
     @Transactional(readOnly = true)
     public List<CourseListItem> listPublishedCourses(ListPublishedCoursesQuery query) {
         return courseRepository.findAllByStatusOrderByUpdatedAtDesc(CourseStatus.PUBLISHED).stream()
@@ -218,6 +258,14 @@ public class ContentCourseService {
         }
     }
 
+    private void assertDistinctSortOrderWhenUpdating(Long courseId, Long chapterId, int sortOrder) {
+        boolean duplicated = chapterRepository.findAllByCourseIdOrderBySortOrderAsc(courseId).stream()
+            .anyMatch(chapter -> !chapter.id().equals(chapterId) && chapter.sortOrder() == sortOrder);
+        if (duplicated) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "Chapter sortOrder must be unique in one course.");
+        }
+    }
+
     private Long requireUserId(Long userId) {
         if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "Authentication is required.");
@@ -230,6 +278,20 @@ public class ContentCourseService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "courseId must be greater than 0.");
         }
         return courseId;
+    }
+
+    private Long requireChapterId(Long chapterId) {
+        if (chapterId == null || chapterId <= 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "chapterId must be greater than 0.");
+        }
+        return chapterId;
+    }
+
+    private int requireSortOrder(int sortOrder) {
+        if (sortOrder <= 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "chapter.sortOrder must be greater than 0.");
+        }
+        return sortOrder;
     }
 
     private CourseStatus toCourseStatus(int statusCode) {

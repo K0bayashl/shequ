@@ -20,6 +20,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,12 +43,22 @@ class ContentSyncControllerTests {
     @Autowired
     private JpaCdkRepository cdkRepository;
 
-    private UserAccountEntity authUser;
+    private UserAccountEntity adminUser;
+    private UserAccountEntity memberUser;
 
     @BeforeEach
     void setUp() {
         cdkRepository.deleteAll();
         userAccountRepository.deleteAll();
+
+        adminUser = userAccountRepository.save(new UserAccountEntity(
+            "admin-user",
+            "admin@example.com",
+            "hashed-password",
+            null,
+            UserRole.ADMIN.getCode(),
+            UserStatus.ACTIVE.getCode()
+        ));
 
         UserAccountEntity activeOne = userAccountRepository.save(new UserAccountEntity(
             "active-one",
@@ -55,7 +68,7 @@ class ContentSyncControllerTests {
             UserRole.MEMBER.getCode(),
             UserStatus.ACTIVE.getCode()
         ));
-        this.authUser = activeOne;
+        this.memberUser = activeOne;
         userAccountRepository.save(new UserAccountEntity(
             "active-two",
             "active.two@example.com",
@@ -98,7 +111,7 @@ class ContentSyncControllerTests {
         mockMvc.perform(get("/api/v1/content/community/feed")
                 .param("filter", "official")
                 .param("sort", "hot")
-                .header("Authorization", bearerToken()))
+                .header("Authorization", bearerToken(memberUser)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value("SUCCESS"))
             .andExpect(jsonPath("$.data.threads[0].type").value("official"))
@@ -109,45 +122,83 @@ class ContentSyncControllerTests {
     void shouldReturnAdminCdkOverview() throws Exception {
         mockMvc.perform(get("/api/v1/content/admin/cdks")
                 .param("status", "unused")
-                .header("Authorization", bearerToken()))
+                .header("Authorization", bearerToken(memberUser)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value("SUCCESS"))
-            .andExpect(jsonPath("$.data.totalUsers").value(3))
-            .andExpect(jsonPath("$.data.activeMembers").value(2))
+                .andExpect(jsonPath("$.data.totalUsers").value(4))
+                .andExpect(jsonPath("$.data.activeMembers").value(3))
             .andExpect(jsonPath("$.data.remainingCdks").value(2))
             .andExpect(jsonPath("$.data.cdks[0].status").value("unused"));
     }
 
-        @Test
-        void shouldFilterAdminCdkBySearchKeyword() throws Exception {
+    @Test
+    void shouldFilterAdminCdkBySearchKeyword() throws Exception {
         mockMvc.perform(get("/api/v1/content/admin/cdks")
             .param("status", "all")
             .param("search", "active.one@example.com")
-            .header("Authorization", bearerToken()))
+            .header("Authorization", bearerToken(memberUser)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value("SUCCESS"))
             .andExpect(jsonPath("$.data.cdks.length()").value(1))
             .andExpect(jsonPath("$.data.cdks[0].status").value("used"))
             .andExpect(jsonPath("$.data.cdks[0].usedByEmail").value("active.one@example.com"));
-        }
+    }
+
+    @Test
+    void adminShouldCreateCdk() throws Exception {
+        mockMvc.perform(post("/api/v1/content/admin/cdks")
+                .header("Authorization", bearerToken(adminUser))
+                .contentType("application/json")
+                .content("""
+                    {
+                      "code": "CDK-NEW-001"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value("SUCCESS"))
+            .andExpect(jsonPath("$.data.key").value("CDK-NEW-001"))
+            .andExpect(jsonPath("$.data.status").value("unused"));
+
+        mockMvc.perform(get("/api/v1/content/admin/cdks")
+                .param("status", "all")
+                .param("search", "CDK-NEW-001")
+                .header("Authorization", bearerToken(adminUser)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.cdks.length()").value(1))
+            .andExpect(jsonPath("$.data.cdks[0].key").value("CDK-NEW-001"));
+    }
+
+    @Test
+    void memberShouldNotCreateCdk() throws Exception {
+        mockMvc.perform(post("/api/v1/content/admin/cdks")
+                .header("Authorization", bearerToken(memberUser))
+                .contentType("application/json")
+                .content("""
+                    {
+                      "code": "CDK-MEMBER-001"
+                    }
+                    """))
+            .andExpect(status().is4xxClientError())
+            .andExpect(jsonPath("$.code", anyOf(is("FORBIDDEN"), is("UNAUTHORIZED"))));
+    }
 
     @Test
     void shouldReturnDocsChapters() throws Exception {
         mockMvc.perform(get("/api/v1/content/docs/chapters")
-                .header("Authorization", bearerToken()))
+                .header("Authorization", bearerToken(memberUser)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value("SUCCESS"))
             .andExpect(jsonPath("$.data.chapters[0].title").value("Getting Started"))
             .andExpect(jsonPath("$.data.chapters[0].iconKey").value("book"));
     }
 
-    private String bearerToken() {
+    private String bearerToken(UserAccountEntity user) {
         String token = jwtTokenService.issueToken(new UserPrincipal(
-            authUser.getId(),
-            authUser.getUsername(),
-            authUser.getEmail(),
-            authUser.getRole(),
-            authUser.getStatus(),
+            user.getId(),
+            user.getUsername(),
+            user.getEmail(),
+            user.getRole(),
+            user.getStatus(),
             Instant.now()
         ));
 
